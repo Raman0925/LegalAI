@@ -6,32 +6,16 @@ import { createBrowserClient } from '@/lib/supabase/client';
 import { Loader2 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
-/**
- * GoogleSignInButton Component
- * Renders a Google Sign-In button adhering to brand guidelines,
- * with security mitigations for timeout, double-clicks, and error handling.
- */
 export function GoogleSignInButton() {
   const [isLoading, setIsLoading] = React.useState(false);
 
   const handleGoogleSignIn = async () => {
-    if (isLoading) return; // Prevent double-clicks / concurrent execution
+    if (isLoading) return;
     setIsLoading(true);
 
     const supabase = createBrowserClient();
 
-    // Setup an 8-second timeout handler for network issues/redirection freezes
-    const timeoutId = setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: 'Sign-In Timeout',
-        description: 'Connection timed out while initializing OAuth. Please try again.',
-        variant: 'destructive',
-      });
-    }, 8000);
-
     try {
-      // Supabase OAuth PKCE flow automatically sets code verifiers in browser storage
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
@@ -40,7 +24,6 @@ export function GoogleSignInButton() {
       });
 
       if (error) {
-        clearTimeout(timeoutId);
         setIsLoading(false);
         toast({
           title: 'Authentication Error',
@@ -50,8 +33,6 @@ export function GoogleSignInButton() {
         return;
       }
     } catch (err: any) {
-      // Gracefully catch potential errors (e.g. browser context issues) to prevent unhandled promise rejections
-      clearTimeout(timeoutId);
       setIsLoading(false);
       toast({
         title: 'Connection Error',
