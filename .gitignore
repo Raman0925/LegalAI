@@ -1,0 +1,32 @@
+# Core Monorepo Dependencies
+node_modules/
+.pnp
+.pnp.*
+
+# Environment Variables & Secrets (Universal)
+.env*
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# OS & Editor Files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Debug logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+
+# --- Package Specific Ignores ---
+
+# Frontend (Next.js) ignores
+app/frontend/.next/
+app/frontend/out/
+app/frontend/build/
+app/frontend/next-env.d.ts
+app/frontend/*.tsbuildinfo
