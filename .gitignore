@@ -4,7 +4,9 @@ node_modules/
 .pnp.*
 
 # Environment Variables & Secrets (Universal)
-.env*
+.env
+.env.*
+!.env.example
 .env.local
 .env.development.local
 .env.test.local
@@ -30,3 +32,6 @@ app/frontend/out/
 app/frontend/build/
 app/frontend/next-env.d.ts
 app/frontend/*.tsbuildinfo
+
+#backend
+app/backend/.env
