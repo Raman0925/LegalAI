@@ -24,13 +24,13 @@ export class TokenBudgetManager {
                     component: componentName,
                     used,
                     limit,
-                    over: used - limit   // how many tokens over the limit
+                    over: used - limit   
                 });
             }
         }
 
         return {
-            valid: violations.length === 0,  // valid only if zero violations
+            valid: violations.length === 0,  
             violations
         };
     }

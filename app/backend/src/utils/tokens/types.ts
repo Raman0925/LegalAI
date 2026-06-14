@@ -22,3 +22,18 @@ export interface BudgetMetrics {
   totalBudget: number;
   overallUtilization: number;
 }
+
+export interface Message {
+  role: 'user' | 'assistant' | 'system';
+  content: string;
+}
+
+export interface AssembledContext {
+  systemPrompt: string;
+  messages: Message[];
+  totalTokens: number;
+  dropped: {
+    historyMessagesDropped: number;
+    documentsSkipped: number;
+  };
+}
