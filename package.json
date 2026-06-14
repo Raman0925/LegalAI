@@ -8,7 +8,10 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "dev": "npm run dev --workspace=app/frontend",
+    "dev:frontend": "npm run dev --workspace=app/frontend",
+    "dev:backend": "npm run dev --workspace=app/backend",
+    "test": "npm test --workspaces"
   },
   "keywords": [],
   "author": "",
