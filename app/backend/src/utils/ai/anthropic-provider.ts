@@ -2,7 +2,11 @@ import { ModelProvider, CompletionParams, CompletionResult } from './model-route
 import { EmbeddingService } from '../embeddings/embeddingService.js';
 
 export class AnthropicProvider implements ModelProvider {
-  constructor(private readonly apiKey: string) {}
+  private readonly embeddingService: EmbeddingService;
+
+  constructor(private readonly apiKey: string) {
+    this.embeddingService = new EmbeddingService('text-embedding-3-small');
+  }
 
   /**
    * Calls the Anthropic Messages API and normalizes the response to CompletionResult.
@@ -72,10 +76,8 @@ export class AnthropicProvider implements ModelProvider {
 
   /**
    * Generates embedding vector for a text.
-   * Reuses the project's EmbeddingService from src/utils/embeddings/embeddingService.ts.
    */
   public async embed(text: string): Promise<number[]> {
-    const service = new EmbeddingService('text-embedding-3-small');
-    return service.embed(text);
+    return this.embeddingService.embed(text);
   }
 }

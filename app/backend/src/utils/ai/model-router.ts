@@ -25,43 +25,32 @@ export interface ModelProvider {
   embed(text: string): Promise<number[]>;
 }
 
+const MODELS = {
+  haiku: {
+    modelName: 'claude-haiku-4-5',
+    inputCostPerMillion: 0.80,
+    outputCostPerMillion: 4.00
+  },
+  sonnet: {
+    modelName: 'claude-sonnet-4-6',
+    inputCostPerMillion: 3.00,
+    outputCostPerMillion: 15.00
+  }
+};
+
 export class ModelRouter {
   private static readonly registry: Record<string, Record<string, ModelConfig>> = {
     chat: {
-      cheap: {
-        modelName: 'claude-3-5-haiku-20241022',
-        inputCostPerMillion: 0.80,
-        outputCostPerMillion: 4.00
-      },
-      premium: {
-        modelName: 'claude-3-5-sonnet-20241022',
-        inputCostPerMillion: 3.00,
-        outputCostPerMillion: 15.00
-      }
+      cheap: MODELS.haiku,
+      premium: MODELS.sonnet
     },
     classification: {
-      cheap: {
-        modelName: 'claude-3-5-haiku-20241022',
-        inputCostPerMillion: 0.80,
-        outputCostPerMillion: 4.00
-      },
-      premium: {
-        modelName: 'claude-3-5-sonnet-20241022',
-        inputCostPerMillion: 3.00,
-        outputCostPerMillion: 15.00
-      }
+      cheap: MODELS.haiku,
+      premium: MODELS.sonnet
     },
     extraction: {
-      cheap: {
-        modelName: 'claude-3-5-haiku-20241022',
-        inputCostPerMillion: 0.80,
-        outputCostPerMillion: 4.00
-      },
-      premium: {
-        modelName: 'claude-3-5-sonnet-20241022',
-        inputCostPerMillion: 3.00,
-        outputCostPerMillion: 15.00
-      }
+      cheap: MODELS.haiku,
+      premium: MODELS.sonnet
     }
   };
 

@@ -11,11 +11,11 @@ describe('ModelRouter', () => {
 
   it('getModel returns correct model for task and tier', () => {
     const cheapChatConfig = router.getModel('chat', 'cheap');
-    expect(cheapChatConfig.modelName).toBe('claude-3-5-haiku-20241022');
+    expect(cheapChatConfig.modelName).toBe('claude-haiku-4-5');
     expect(cheapChatConfig.inputCostPerMillion).toBe(0.80);
 
     const premiumChatConfig = router.getModel('chat', 'premium');
-    expect(premiumChatConfig.modelName).toBe('claude-3-5-sonnet-20241022');
+    expect(premiumChatConfig.modelName).toBe('claude-sonnet-4-6');
     expect(premiumChatConfig.inputCostPerMillion).toBe(3.00);
 
     // Throws on unknown task
@@ -77,7 +77,7 @@ describe('AnthropicProvider', () => {
 
     const provider = new AnthropicProvider(apiKey);
     const result = await provider.complete({
-      model: 'claude-3-5-haiku-20241022',
+      model: 'claude-haiku-4-5',
       messages: [{ role: 'user', content: 'hi' }],
       temperature: 0.7,
       systemPrompt: 'You are a helpful assistant.'
@@ -99,7 +99,7 @@ describe('AnthropicProvider', () => {
         'content-type': 'application/json'
       }),
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',
+        model: 'claude-haiku-4-5',
         max_tokens: 4096,
         messages: [{ role: 'user', content: 'hi' }],
         temperature: 0.7,
