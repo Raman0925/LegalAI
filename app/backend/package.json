@@ -37,6 +37,7 @@
     "gpt-tokenizer": "^3.4.0",
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.21.0",
+    "postgres": "^3.4.9",
     "zod": "^4.4.3"
   },
   "devDependencies": {
