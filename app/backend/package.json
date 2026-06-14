@@ -54,7 +54,8 @@
     "jsonwebtoken": "^9.0.3",
     "pg": "^8.21.0",
     "postgres": "^3.4.9",
-    "zod": "^4.4.3"
+    "zod": "^4.4.3",
+    "zod-to-json-schema": "^3.25.2"
   },
   "devDependencies": {
     "@types/jsonwebtoken": "^9.0.10",
