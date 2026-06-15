@@ -1,13 +1,59 @@
-import { z } from 'zod';
+export const chatRequestSchema = {
+  type: 'object',
+  properties: {
+    message: {
+      type: 'string',
+      minLength: 1,
+    },
+    history: {
+      type: 'array',
+      items: {
+        type: 'object',
+        properties: {
+          role: {
+            type: 'string',
+            enum: ['user', 'assistant', 'system'],
+          },
+          content: {
+            type: 'string',
+          },
+        },
+        required: ['role', 'content'],
+        additionalProperties: false,
+      },
+      default: [],
+    },
+    tier: {
+      type: 'string',
+      enum: ['fast', 'balanced', 'powerful'],
+      default: 'balanced',
+    },
+  },
+  required: ['message'],
+  additionalProperties: false,
+};
 
-const MessageRoleSchema = z.enum(['user', 'assistant', 'system']);
-const MessageSchema = z.object({
-  role: MessageRoleSchema,
-  content: z.string()
-});
+export const chatResponseSchema = {
+  type: 'object',
+  properties: {
+    text: { type: 'string' },
+    usage: {
+      type: 'object',
+      properties: {
+        inputTokens: { type: 'number' },
+        outputTokens: { type: 'number' },
+      },
+      required: ['inputTokens', 'outputTokens'],
+    },
+  },
+  required: ['text', 'usage'],
+};
 
-export const ChatRequestSchema = z.object({
-  message: z.string().min(1, 'Message is required'),
-  history: z.array(MessageSchema).default([]),
-  tier: z.enum(['fast', 'balanced', 'powerful']).default('balanced')
-});
+export const errorResponseSchema = {
+  type: 'object',
+  properties: {
+    statusCode: { type: 'number' },
+    error: { type: 'string' },
+    message: { type: 'string' },
+  },
+};

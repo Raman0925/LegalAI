@@ -1,11 +1,13 @@
 import { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from 'fastify';
 import { sendMessage, streamMessageIterable } from './chat.service.js';
-import { ChatRequestSchema } from './chat.validator.js';
+import { chatRequestSchema, chatResponseSchema, errorResponseSchema } from './chat.validator.js';
 
-/**
- * Chat Controller Plugin
- * Defines endpoints for standard and streaming response generation.
- */
+interface ChatRequestBody {
+  message: string;
+  history?: { role: 'user' | 'assistant' | 'system'; content: string }[];
+  tier?: 'fast' | 'balanced' | 'powerful';
+}
+
 const chatController = async (fastify: FastifyInstance, options: FastifyPluginOptions) => {
   // POST /chat
   fastify.post(
@@ -15,19 +17,16 @@ const chatController = async (fastify: FastifyInstance, options: FastifyPluginOp
         tags: ['Chat'],
         summary: 'Send chat message',
         description: 'Sends a chat message and retrieves a complete response.',
+        body: chatRequestSchema,
+        response: {
+          200: chatResponseSchema,
+          '4xx': errorResponseSchema,
+          '5xx': errorResponseSchema,
+        },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const parsed = ChatRequestSchema.safeParse(request.body);
-      if (!parsed.success) {
-        return reply.code(400).send({
-          error: 'Bad Request',
-          message: parsed.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
-          statusCode: 400
-        });
-      }
-
-      const { message, history, tier } = parsed.data;
+    async (request: FastifyRequest<{ Body: ChatRequestBody }>, reply: FastifyReply) => {
+      const { message, history = [], tier = 'balanced' } = request.body;
       const result = await sendMessage(message, history, tier);
       return reply.code(200).send(result);
     }
@@ -42,19 +41,15 @@ const chatController = async (fastify: FastifyInstance, options: FastifyPluginOp
         tags: ['Chat'],
         summary: 'Stream chat message',
         description: 'Streams response using Server-Sent Events (SSE).',
+        body: chatRequestSchema,
+        response: {
+          '4xx': errorResponseSchema,
+          '5xx': errorResponseSchema,
+        },
       },
     },
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const parsed = ChatRequestSchema.safeParse(request.body);
-      if (!parsed.success) {
-        return reply.code(400).send({
-          error: 'Bad Request',
-          message: parsed.error.issues.map(e => `${e.path.join('.')}: ${e.message}`).join(', '),
-          statusCode: 400
-        });
-      }
-
-      const { message, history, tier } = parsed.data;
+    async (request: FastifyRequest<{ Body: ChatRequestBody }>, reply: FastifyReply) => {
+      const { message, history = [], tier = 'balanced' } = request.body;
 
       if (!reply.sse) {
         return reply.code(406).send({
