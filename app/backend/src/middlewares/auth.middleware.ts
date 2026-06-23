@@ -49,7 +49,7 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
 
     // 4. Query the public.profiles database table using the pg connection pool
     const result = await request.server.pg.query(
-      'SELECT id, email, full_name, avatar_url, updated_at FROM public.profiles WHERE id = $1',
+      'SELECT id, email, full_name, avatar_url, created_at, updated_at FROM public.profiles WHERE id = $1',
       [user.id],
     );
 
@@ -62,6 +62,7 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
         email: user.email || '',
         full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
         avatar_url: user.user_metadata?.avatar_url || null,
+        created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
       request.log.warn(

@@ -1,11 +1,18 @@
--- Create profiles table in the public schema
+-- Create profiles table in the public schema if not exists
 create table if not exists public.profiles (
   id uuid references auth.users on delete cascade primary key,
   email text unique not null,
   full_name text,
   avatar_url text,
+  created_at timestamp with time zone default timezone('utc'::text, now()) not null,
   updated_at timestamp with time zone default timezone('utc'::text, now()) not null
 );
+
+-- Ensure created_at column exists if table was already created
+alter table public.profiles add column if not exists created_at timestamp with time zone default timezone('utc'::text, now()) not null;
+
+-- Explicit index on email for verification and fast lookups
+create index if not exists profiles_email_idx on public.profiles (email);
 
 -- Enable Row Level Security (RLS) to prevent unauthorized access
 alter table public.profiles enable row level security;

@@ -21,7 +21,7 @@ export class UserRepository {
    */
   async findById(id: string): Promise<any> {
     const query = `
-      SELECT id, email, full_name, avatar_url, updated_at 
+      SELECT id, email, full_name, avatar_url, created_at, updated_at 
       FROM public.profiles 
       WHERE id = $1
     `;
@@ -45,7 +45,7 @@ export class UserRepository {
         avatar_url = COALESCE($3, avatar_url), 
         updated_at = NOW() 
       WHERE id = $1 
-      RETURNING id, email, full_name, avatar_url, updated_at
+      RETURNING id, email, full_name, avatar_url, created_at, updated_at
     `;
     const result = await this.db.query(query, [id, fullName, avatarUrl]);
     return result.rows[0];

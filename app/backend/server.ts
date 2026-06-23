@@ -6,6 +6,7 @@ import { requestContextMiddleware } from '#middlewares/requestContext.middleware
 import authMiddleware from '#middlewares/auth.middleware.js';
 import userController from '#domains/user/user.controller.js';
 import chatController from '#domains/chat/chat.controller.js';
+import healthController from '#domains/health/health.controller.js';
 import fastifySSE from '@fastify/sse';
 import loggerConfig from '#config/loggerConfig.js';
 import swagger from '@fastify/swagger';
@@ -33,6 +34,7 @@ fastify.addHook('onRequest', requestContextMiddleware);
 fastify.addHook('preHandler', authMiddleware);
 
 // Register domain routes
+fastify.register(healthController);
 fastify.register(userController, { prefix: '/auth' });
 fastify.register(chatController, { prefix: '/chat' });
 

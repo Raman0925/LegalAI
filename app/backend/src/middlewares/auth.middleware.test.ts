@@ -86,6 +86,7 @@ describe('authMiddleware', () => {
       email: 'test@example.com',
       full_name: 'John Doe',
       avatar_url: 'https://example.com/avatar.png',
+      created_at: '2026-06-14T08:00:00Z',
       updated_at: '2026-06-14T08:00:00Z',
     };
 
@@ -112,7 +113,7 @@ describe('authMiddleware', () => {
     await authMiddleware(req, reply);
 
     expect(mockQuery).toHaveBeenCalledWith(
-      'SELECT id, email, full_name, avatar_url, updated_at FROM public.profiles WHERE id = $1',
+      'SELECT id, email, full_name, avatar_url, created_at, updated_at FROM public.profiles WHERE id = $1',
       ['user-id-123'],
     );
     expect(req.user).toEqual(mockProfile);
@@ -153,13 +154,14 @@ describe('authMiddleware', () => {
     await authMiddleware(req, reply);
 
     expect(mockQuery).toHaveBeenCalledWith(
-      'SELECT id, email, full_name, avatar_url, updated_at FROM public.profiles WHERE id = $1',
+      'SELECT id, email, full_name, avatar_url, created_at, updated_at FROM public.profiles WHERE id = $1',
       ['user-id-456'],
     );
     expect(req.user.id).toBe('user-id-456');
     expect(req.user.email).toBe('fallback@example.com');
     expect(req.user.full_name).toBe('Fallback User');
     expect(req.user.avatar_url).toBeNull();
+    expect(req.user.created_at).toBeDefined();
     expect(req.user.updated_at).toBeDefined();
     expect(mockWarn).toHaveBeenCalled();
   });
