@@ -1,16 +1,24 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
 import { extractStructured, extractShippingAddress } from '../extract-structured.js';
+import { ChatAnthropic } from '@langchain/anthropic';
+
+vi.mock('@langchain/anthropic', () => {
+  return {
+    ChatAnthropic: vi.fn().mockImplementation(() => {
+      return {
+        bindTools: vi.fn().mockReturnValue({
+          invoke: vi.fn(),
+        }),
+      };
+    }),
+  };
+});
 
 describe('extractStructured', () => {
   const apiKey = 'test-api-key';
-  const mockFetch = vi.fn();
 
   beforeEach(() => {
-    vi.stubGlobal('fetch', mockFetch);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it('extractStructured returns the tool input when model calls the tool', async () => {
@@ -22,19 +30,24 @@ describe('extractStructured', () => {
       postalCode: '94043'
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        content: [
-          {
-            type: 'tool_use',
-            id: 'toolu_addr_1',
-            name: 'extractShippingAddress',
-            input: mockAddress
-          }
-        ],
-        stop_reason: 'tool_use'
-      })
+    const mockInvoke = vi.fn().mockResolvedValue({
+      tool_calls: [
+        {
+          name: 'extractShippingAddress',
+          args: mockAddress,
+          id: 'toolu_addr_1',
+        }
+      ]
+    });
+
+    const mockBindTools = vi.fn().mockReturnValue({
+      invoke: mockInvoke
+    });
+
+    vi.mocked(ChatAnthropic).mockImplementation(() => {
+      return {
+        bindTools: mockBindTools
+      } as any;
     });
 
     const result = await extractStructured(
@@ -44,29 +57,27 @@ describe('extractStructured', () => {
     );
 
     expect(result).toEqual(mockAddress);
-    expect(mockFetch).toHaveBeenCalledTimes(1);
-
-    const callArgs = mockFetch.mock.calls[0];
-    const requestBody = JSON.parse(callArgs[1].body);
-    expect(requestBody.tool_choice).toEqual({
-      type: 'tool',
-      name: 'extractShippingAddress'
-    });
+    expect(mockBindTools).toHaveBeenCalledWith(
+      expect.any(Array),
+      expect.objectContaining({
+        tool_choice: { type: 'tool', name: 'extractShippingAddress' }
+      })
+    );
   });
 
   it("extractStructured throws when model doesn't call the expected tool", async () => {
-    // Return a normal text response instead of tool call
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        content: [
-          {
-            type: 'text',
-            text: 'I cannot extract any address.'
-          }
-        ],
-        stop_reason: 'end_turn'
-      })
+    const mockInvoke = vi.fn().mockResolvedValue({
+      tool_calls: []
+    });
+
+    const mockBindTools = vi.fn().mockReturnValue({
+      invoke: mockInvoke
+    });
+
+    vi.mocked(ChatAnthropic).mockImplementation(() => {
+      return {
+        bindTools: mockBindTools
+      } as any;
     });
 
     await expect(

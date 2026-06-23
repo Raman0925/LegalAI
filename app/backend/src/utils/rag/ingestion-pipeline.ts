@@ -22,7 +22,7 @@ export function createIngestionPipeline(
       await vectorStore.deleteByDocumentId(document.id);
     }
 
-    const chunks = chunker.chunk(document.content);
+    const chunks = await chunker.chunk(document.content);
     if (chunks.length === 0) return { chunksCreated: 0 };
 
     const embeddings = await embeddingService.embedBatch(chunks.map((c) => c.text));

@@ -1,13 +1,13 @@
 import postgres from 'postgres';
-import { HybridRetriever } from '../../utils/vector/hybrid-retriever.js';
+import { HybridRetriever, createHybridRetriever } from '../../utils/vector/hybrid-retriever.js';
 import { VectorStore } from '../../utils/vectorStore/vectorStore.js';
-import { EmbeddingService } from '../../utils/embeddings/embeddingService.js';
+import { EmbeddingService, createEmbeddingService } from '../../utils/embeddings/embeddingService.js';
 import { Reranker } from '../../utils/vector/reranker.js';
 import { ContextWindowAssembler } from '../../utils/tokens/contextWindowAssembler.js';
-import { TokenBudgetManager } from '../../utils/tokens/tokenBudgetManager.js';
-import { ModelRouter } from '../../utils/ai/model-router.js';
-import { AnthropicProvider } from '../../utils/ai/anthropic-provider.js';
-import { StreamingProvider } from '../../utils/ai/streaming-provider.js';
+import { TokenBudgetManager, createTokenBudgetManager } from '../../utils/tokens/tokenBudgetManager.js';
+import { ModelRouter, createModelRouter } from '../../utils/ai/model-router.js';
+import { AnthropicProvider, createAnthropicProvider } from '../../utils/ai/anthropic-provider.js';
+import { StreamingProvider, createStreamingProvider } from '../../utils/ai/streaming-provider.js';
 import { Message, contextBudget } from '../../utils/tokens/types.js';
 import { customerSupportSystemPrompt } from '../../utils/prompts/prompt-manager.js';
 import { DEFAULT_CHAT_BUDGET, DEFAULT_COMPANY_NAME, DEFAULT_SUPPORT_EMAIL } from './chat.constant.js';
@@ -177,15 +177,15 @@ const db = postgres(process.env.DATABASE_URL || '', {
 });
 
 const vectorStore = new VectorStore(db);
-const embeddingService = new EmbeddingService('text-embedding-3-small');
+const embeddingService = createEmbeddingService('text-embedding-3-small');
 const reranker = new Reranker(process.env.COHERE_API_KEY || 'dummy-cohere-key');
-const retriever = new HybridRetriever(vectorStore, embeddingService, reranker, db);
+const retriever = createHybridRetriever(vectorStore, embeddingService, reranker, db);
 
-const tokenManager = new TokenBudgetManager(DEFAULT_CHAT_BUDGET);
+const tokenManager = createTokenBudgetManager(DEFAULT_CHAT_BUDGET);
 const assembler = new ContextWindowAssembler(DEFAULT_CHAT_BUDGET, tokenManager);
-const modelRouter = new ModelRouter();
-const provider = new AnthropicProvider(process.env.ANTHROPIC_API_KEY || 'dummy-anthropic-key');
-const streaming = new StreamingProvider(process.env.ANTHROPIC_API_KEY || 'dummy-anthropic-key');
+const modelRouter = createModelRouter();
+const provider = createAnthropicProvider(process.env.ANTHROPIC_API_KEY || 'dummy-anthropic-key');
+const streaming = createStreamingProvider(process.env.ANTHROPIC_API_KEY || 'dummy-anthropic-key');
 
 export const chatService = new ChatService(
   retriever,

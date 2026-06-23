@@ -14,14 +14,22 @@ export function GoogleSignInButton() {
     setIsLoading(true);
 
     const supabase = createBrowserClient();
+    let timeoutId: any;
 
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => reject(new Error('Sign-In Timeout')), 8000);
+      });
+
+      const signInPromise = supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
           redirectTo: `${window.location.origin}/auth/callback`,
         },
       });
+
+      const { error } = await Promise.race([signInPromise, timeoutPromise]);
+      if (timeoutId) clearTimeout(timeoutId);
 
       if (error) {
         setIsLoading(false);
@@ -33,12 +41,21 @@ export function GoogleSignInButton() {
         return;
       }
     } catch (err: any) {
+      if (timeoutId) clearTimeout(timeoutId);
       setIsLoading(false);
-      toast({
-        title: 'Connection Error',
-        description: err.message || 'A network error occurred. Please try again.',
-        variant: 'destructive',
-      });
+      if (err.message === 'Sign-In Timeout') {
+        toast({
+          title: 'Sign-In Timeout',
+          description: 'The authentication request timed out. Please try again.',
+          variant: 'destructive',
+        });
+      } else {
+        toast({
+          title: 'Connection Error',
+          description: err.message || 'A network error occurred. Please try again.',
+          variant: 'destructive',
+        });
+      }
     }
   };
 

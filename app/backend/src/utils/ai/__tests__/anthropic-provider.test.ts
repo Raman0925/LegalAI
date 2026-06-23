@@ -1,12 +1,23 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ModelRouter, ModelConfig } from '../model-router.js';
-import { AnthropicProvider } from '../anthropic-provider.js';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { createModelRouter, ModelRouter, ModelConfig } from '../model-router.js';
+import { createAnthropicProvider } from '../anthropic-provider.js';
+import { ChatAnthropic } from '@langchain/anthropic';
+
+vi.mock('@langchain/anthropic', () => {
+  return {
+    ChatAnthropic: vi.fn().mockImplementation(() => {
+      return {
+        invoke: vi.fn(),
+      };
+    }),
+  };
+});
 
 describe('ModelRouter', () => {
   let router: ModelRouter;
 
   beforeEach(() => {
-    router = new ModelRouter();
+    router = createModelRouter();
   });
 
   it('getModel returns correct model for task and tier', () => {
@@ -18,10 +29,7 @@ describe('ModelRouter', () => {
     expect(premiumChatConfig.modelName).toBe('claude-sonnet-4-6');
     expect(premiumChatConfig.inputCostPerMillion).toBe(3.00);
 
-    // Throws on unknown task
     expect(() => router.getModel('unknown-task', 'cheap')).toThrowError(/Unknown task/);
-
-    // Throws on unknown tier
     expect(() => router.getModel('chat', 'unknown-tier')).toThrowError(/Unknown tier/);
   });
 
@@ -32,15 +40,12 @@ describe('ModelRouter', () => {
       outputCostPerMillion: 5.00
     };
 
-    // 1M input, 1M output -> 1.50 + 5.00 = 6.50
     const cost1 = router.estimateCost(testConfig, 1_000_000, 1_000_000);
     expect(cost1).toBeCloseTo(6.50, 5);
 
-    // 500k input, 100k output -> 0.75 + 0.50 = 1.25
     const cost2 = router.estimateCost(testConfig, 500_000, 100_000);
     expect(cost2).toBeCloseTo(1.25, 5);
 
-    // 0 tokens -> 0.00
     const cost3 = router.estimateCost(testConfig, 0, 0);
     expect(cost3).toBe(0);
   });
@@ -48,34 +53,27 @@ describe('ModelRouter', () => {
 
 describe('AnthropicProvider', () => {
   const apiKey = 'test-anthropic-key';
-  const mockFetch = vi.fn();
 
   beforeEach(() => {
-    vi.stubGlobal('fetch', mockFetch);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it('complete normalizes response correctly', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        content: [
-          {
-            type: 'text',
-            text: 'Hello there, how can I help you today?'
-          }
-        ],
-        usage: {
-          input_tokens: 150,
-          output_tokens: 45
-        }
-      })
+    const mockInvoke = vi.fn().mockResolvedValue({
+      content: 'Hello there, how can I help you today?',
+      usage_metadata: {
+        input_tokens: 150,
+        output_tokens: 45
+      }
     });
 
-    const provider = new AnthropicProvider(apiKey);
+    vi.mocked(ChatAnthropic).mockImplementation(() => {
+      return {
+        invoke: mockInvoke
+      } as any;
+    });
+
+    const provider = createAnthropicProvider(apiKey);
     const result = await provider.complete({
       model: 'claude-haiku-4-5',
       messages: [{ role: 'user', content: 'hi' }],
@@ -91,20 +89,11 @@ describe('AnthropicProvider', () => {
       }
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('https://api.anthropic.com/v1/messages', expect.objectContaining({
-      method: 'POST',
-      headers: expect.objectContaining({
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      }),
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 4096,
-        messages: [{ role: 'user', content: 'hi' }],
-        temperature: 0.7,
-        system: 'You are a helpful assistant.'
-      })
+    expect(ChatAnthropic).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'claude-haiku-4-5',
+      apiKey: apiKey,
+      temperature: 0.7
     }));
+    expect(mockInvoke).toHaveBeenCalled();
   });
 });

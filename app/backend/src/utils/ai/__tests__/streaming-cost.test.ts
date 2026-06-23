@@ -1,22 +1,29 @@
-import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { ModelRouter } from '../model-router.js';
-import { CostTracker, CostMetrics } from '../cost-tracker.js';
-import { StreamingProvider } from '../streaming-provider.js';
+import { vi, describe, it, expect, beforeEach } from 'vitest';
+import { createModelRouter, ModelRouter } from '../model-router.js';
+import { createCostTracker, CostTracker, CostMetrics } from '../cost-tracker.js';
+import { createStreamingProvider } from '../streaming-provider.js';
+import { ChatAnthropic } from '@langchain/anthropic';
+
+vi.mock('@langchain/anthropic', () => {
+  return {
+    ChatAnthropic: vi.fn().mockImplementation(() => {
+      return {
+        stream: vi.fn(),
+      };
+    }),
+  };
+});
 
 describe('CostTracker', () => {
   let router: ModelRouter;
   let tracker: CostTracker;
 
   beforeEach(() => {
-    router = new ModelRouter();
-    tracker = new CostTracker(router);
+    router = createModelRouter();
+    tracker = createCostTracker(router);
   });
 
   it('CostTracker.track calculates cost correctly', () => {
-    // chat cheap uses claude-haiku-4-5 (0.80 input, 4.00 output per million)
-    // 500k input tokens -> 0.40
-    // 250k output tokens -> 1.00
-    // total cost -> 1.40
     const metrics = tracker.track('customer_chat', 'chat', 'cheap', {
       inputTokens: 500_000,
       outputTokens: 250_000
@@ -68,7 +75,6 @@ describe('CostTracker', () => {
       output: 200_000
     });
 
-    // Verify breakdown by feature
     expect(summary.byFeature['chat_bot']).toEqual({
       cost: 1.33,
       inputTokens: 200_000,
@@ -92,39 +98,42 @@ describe('CostTracker', () => {
 
 describe('StreamingProvider', () => {
   const apiKey = 'test-streaming-key';
-  const mockFetch = vi.fn();
 
   beforeEach(() => {
-    vi.stubGlobal('fetch', mockFetch);
-  });
-
-  afterEach(() => {
-    vi.restoreAllMocks();
+    vi.clearAllMocks();
   });
 
   it('StreamingProvider calls onChunk for each delta', async () => {
-    const lines = [
-      'data: {"type": "message_start", "message": {"usage": {"input_tokens": 120}}}\n',
-      'data: {"type": "content_block_delta", "delta": {"type": "text_delta", "text": "Streaming"}}\n',
-      'data: {"type": "content_block_delta", "delta": {"type": "text_delta", "text": " is"}}\n',
-      'data: {"type": "content_block_delta", "delta": {"type": "text_delta", "text": " fun!"}}\n',
-      'data: {"type": "message_delta", "usage": {"output_tokens": 45}}\n'
+    const mockChunks = [
+      {
+        content: 'Streaming',
+        usage_metadata: { input_tokens: 120 }
+      },
+      {
+        content: ' is',
+      },
+      {
+        content: ' fun!',
+        usage_metadata: { output_tokens: 45 }
+      }
     ];
 
     const mockStream = {
       [Symbol.asyncIterator]: async function* () {
-        for (const line of lines) {
-          yield line;
+        for (const c of mockChunks) {
+          yield c;
         }
       }
     };
 
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      body: mockStream
+    const mockStreamFn = vi.fn().mockResolvedValue(mockStream);
+    vi.mocked(ChatAnthropic).mockImplementation(() => {
+      return {
+        stream: mockStreamFn
+      } as any;
     });
 
-    const provider = new StreamingProvider(apiKey);
+    const provider = createStreamingProvider(apiKey);
     const chunks: string[] = [];
     let finalUsage: { inputTokens: number; outputTokens: number } | null = null;
 
@@ -147,26 +156,23 @@ describe('StreamingProvider', () => {
       outputTokens: 45
     });
 
-    expect(mockFetch).toHaveBeenCalledWith('https://api.anthropic.com/v1/messages', expect.objectContaining({
-      method: 'POST',
-      body: JSON.stringify({
-        model: 'claude-haiku-4-5',
-        max_tokens: 4096,
-        messages: [{ role: 'user', content: 'test stream' }],
-        stream: true
-      })
+    expect(ChatAnthropic).toHaveBeenCalledWith(expect.objectContaining({
+      model: 'claude-haiku-4-5',
+      apiKey: apiKey,
+      streaming: true
     }));
+    expect(mockStreamFn).toHaveBeenCalled();
   });
 
   it('StreamingProvider throws error when API response is not OK', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: false,
-      status: 500,
-      statusText: 'Internal Server Error',
-      text: async () => 'Error payload'
+    const mockStreamFn = vi.fn().mockRejectedValue(new Error('Internal Server Error'));
+    vi.mocked(ChatAnthropic).mockImplementation(() => {
+      return {
+        stream: mockStreamFn
+      } as any;
     });
 
-    const provider = new StreamingProvider(apiKey);
+    const provider = createStreamingProvider(apiKey);
     await expect(
       provider.streamComplete(
         {
@@ -176,6 +182,6 @@ describe('StreamingProvider', () => {
         () => {},
         () => {}
       )
-    ).rejects.toThrowError(/Anthropic API request failed: 500 Internal Server Error - Error payload/);
+    ).rejects.toThrowError('Internal Server Error');
   });
 });

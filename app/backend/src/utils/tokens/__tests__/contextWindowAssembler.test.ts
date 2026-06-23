@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { TokenBudgetManager } from '../tokenBudgetManager.js';
+import { TokenBudgetManager, createTokenBudgetManager } from '../tokenBudgetManager.js';
 import { ContextWindowAssembler } from '../contextWindowAssembler.js';
 import { contextBudget, Message } from '../types.js';
 
@@ -14,7 +14,7 @@ describe('ContextWindowAssembler', () => {
       responseBudget: 0
     };
 
-    const tokenManager = new TokenBudgetManager(mockBudget);
+    const tokenManager = createTokenBudgetManager(mockBudget);
     const assembler = new ContextWindowAssembler(mockBudget, tokenManager);
 
     it('should successfully assemble context when all inputs are within budget', () => {
@@ -47,7 +47,7 @@ describe('ContextWindowAssembler', () => {
         userMessage: 30,
         responseBudget: 0
       };
-      const tokenManager = new TokenBudgetManager(mockBudget);
+      const tokenManager = createTokenBudgetManager(mockBudget);
       const assembler = new ContextWindowAssembler(mockBudget, tokenManager);
 
       const systemPrompt = 'Helper';
@@ -74,7 +74,7 @@ describe('ContextWindowAssembler', () => {
         userMessage: 30,
         responseBudget: 0
       };
-      const tokenManager = new TokenBudgetManager(mockBudget);
+      const tokenManager = createTokenBudgetManager(mockBudget);
       const assembler = new ContextWindowAssembler(mockBudget, tokenManager);
 
       const systemPrompt = 'Helper';
@@ -100,7 +100,7 @@ describe('ContextWindowAssembler', () => {
         userMessage: 30,
         responseBudget: 0
       };
-      const tokenManager = new TokenBudgetManager(mockBudget);
+      const tokenManager = createTokenBudgetManager(mockBudget);
       const assembler = new ContextWindowAssembler(mockBudget, tokenManager);
 
       const systemPrompt = 'This is a long system prompt that will easily exceed five tokens.';
@@ -122,7 +122,7 @@ describe('ContextWindowAssembler', () => {
         userMessage: 5,
         responseBudget: 0
       };
-      const tokenManager = new TokenBudgetManager(mockBudget);
+      const tokenManager = createTokenBudgetManager(mockBudget);
       const assembler = new ContextWindowAssembler(mockBudget, tokenManager);
 
       const systemPrompt = 'Helper';

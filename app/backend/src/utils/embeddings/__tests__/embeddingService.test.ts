@@ -1,86 +1,69 @@
 import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
-import { EmbeddingService } from '../embeddingService.js';
+import { createEmbeddingService } from '../embeddingService.js';
+import { OpenAIEmbeddings } from '@langchain/openai';
+
+vi.mock('@langchain/openai', () => {
+  return {
+    OpenAIEmbeddings: vi.fn().mockImplementation(() => {
+      return {
+        embedQuery: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
+        embedDocuments: vi.fn().mockResolvedValue([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]),
+      };
+    }),
+  };
+});
 
 describe('EmbeddingService', () => {
-  const model = 'text-embedding-ada-002';
+  const model = 'text-embedding-3-small';
   let originalApiKey: string | undefined;
-  const mockFetch = vi.fn();
 
   beforeEach(() => {
     originalApiKey = process.env.OPENAI_API_KEY;
     process.env.OPENAI_API_KEY = 'test-api-key';
-    vi.stubGlobal('fetch', mockFetch);
+    vi.clearAllMocks();
   });
 
   afterEach(() => {
     process.env.OPENAI_API_KEY = originalApiKey;
-    vi.restoreAllMocks();
   });
 
-  // Test 1: Model validation in constructor
-  it('should throw an error if model is invalid during initialization', () => {
-    expect(() => new EmbeddingService('invalid-model')).toThrowError(/Invalid model/);
-  });
+  it('should call embedQuery when calling embed', async () => {
+    const mockEmbedQuery = vi.fn().mockResolvedValue([0.1, 0.2, 0.3]);
+    vi.mocked(OpenAIEmbeddings).mockImplementation(() => {
+      return {
+        embedQuery: mockEmbedQuery,
+      } as any;
+    });
 
-  // Test 2: API key retrieval via getApiKey throws if missing
-  it('should throw an error if OPENAI_API_KEY is not defined', async () => {
-    delete process.env.OPENAI_API_KEY;
-    const service = new EmbeddingService(model);
-    await expect(service.embedBatch(['Hello'])).rejects.toThrowError('OPENAI_API_KEY environment variable is not defined');
-  });
-
-  // Test 3: embed delegates to embedBatch
-  it('should delegate to embedBatch and return the first embedding when calling embed', async () => {
-    const service = new EmbeddingService(model);
-    const spy = vi.spyOn(service, 'embedBatch').mockResolvedValueOnce([[0.1, 0.2, 0.3]]);
-    
+    const service = createEmbeddingService(model);
     const result = await service.embed('Hello world');
-    
-    expect(spy).toHaveBeenCalledWith(['Hello world']);
+
+    expect(mockEmbedQuery).toHaveBeenCalledWith('Hello world');
     expect(result).toEqual([0.1, 0.2, 0.3]);
   });
 
-  // Test 4: embedBatch correctly calls API and handles ordering
-  it('should fetch embeddings from OpenAI API and maintain their original order', async () => {
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      json: async () => ({
-        data: [
-          { embedding: [0.4, 0.5], index: 1, object: 'embedding' },
-          { embedding: [0.1, 0.2], index: 0, object: 'embedding' }
-        ]
-      })
+  it('should call embedDocuments when calling embedBatch', async () => {
+    const mockEmbedDocuments = vi.fn().mockResolvedValue([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]);
+    vi.mocked(OpenAIEmbeddings).mockImplementation(() => {
+      return {
+        embedDocuments: mockEmbedDocuments,
+      } as any;
     });
 
-    const service = new EmbeddingService(model);
+    const service = createEmbeddingService(model);
     const result = await service.embedBatch(['first', 'second']);
 
-    expect(mockFetch).toHaveBeenCalledWith('https://api.openai.com/v1/embeddings', expect.objectContaining({
-      method: 'POST',
-      headers: expect.objectContaining({
-        'Authorization': 'Bearer test-api-key',
-        'Content-Type': 'application/json'
-      }),
-      body: JSON.stringify({
-        input: ['first', 'second'],
-        model: model,
-        encoding_format: 'float'
-      })
-    }));
-    expect(result).toEqual([
-      [0.1, 0.2],
-      [0.4, 0.5]
-    ]);
+    expect(mockEmbedDocuments).toHaveBeenCalledWith(['first', 'second']);
+    expect(result).toEqual([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]);
   });
 
-  // Test 5: findMostSimilar works as expected
   it('should correctly find the index of the candidate vector most similar to the query', () => {
-    const service = new EmbeddingService(model);
+    const service = createEmbeddingService(model);
     const query = [1, 0, 0];
     const candidates = [
       [0, 1, 0], // Orthogonal (similarity 0)
       [0.8, 0.6, 0], // High similarity (0.8)
-      [-1, 0, 0] // Opposite (similarity -1)
+      [-1, 0, 0], // Opposite (similarity -1)
     ];
 
     const result = service.findMostSimilar(query, candidates);

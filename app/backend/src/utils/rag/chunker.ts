@@ -13,7 +13,7 @@ export interface Chunk {
 }
 
 export interface Chunker {
-  chunk(text: string): Chunk[];
+  chunk(text: string): Promise<Chunk[]>;
 }
 
 export function createChunker(options?: ChunkOptions): Chunker {
@@ -26,14 +26,13 @@ export function createChunker(options?: ChunkOptions): Chunker {
     separators: ['\n\n', '\n', '. ', ' ', ''],
   });
 
-  function chunk(text: string): Chunk[] {
+  async function chunk(text: string): Promise<Chunk[]> {
     if (!text) return [];
 
-    const docs = splitter.createDocumentsSync([text]);
+    const stringChunks = await splitter.splitText(text);
     let charOffset = 0;
 
-    return docs.map((doc) => {
-      const content = doc.pageContent;
+    return stringChunks.map((content) => {
       const startChar = text.indexOf(content, charOffset);
       const safeStart = startChar === -1 ? charOffset : startChar;
       const endChar = safeStart + content.length;
