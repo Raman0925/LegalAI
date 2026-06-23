@@ -25,61 +25,45 @@ export interface ModelProvider {
   embed(text: string): Promise<number[]>;
 }
 
+export interface ModelRouter {
+  getModel(task: string, tier: string): ModelConfig;
+  estimateCost(config: ModelConfig, inputTokens: number, outputTokens: number): number;
+}
+
 const MODELS = {
   haiku: {
     modelName: 'claude-haiku-4-5',
     inputCostPerMillion: 0.80,
-    outputCostPerMillion: 4.00
+    outputCostPerMillion: 4.00,
   },
   sonnet: {
     modelName: 'claude-sonnet-4-6',
     inputCostPerMillion: 3.00,
-    outputCostPerMillion: 15.00
-  }
+    outputCostPerMillion: 15.00,
+  },
 };
 
-export class ModelRouter {
-  private static readonly registry: Record<string, Record<string, ModelConfig>> = {
-    chat: {
-      cheap: MODELS.haiku,
-      premium: MODELS.sonnet
-    },
-    classification: {
-      cheap: MODELS.haiku,
-      premium: MODELS.sonnet
-    },
-    extraction: {
-      cheap: MODELS.haiku,
-      premium: MODELS.sonnet
-    }
-  };
+const registry: Record<string, Record<string, ModelConfig>> = {
+  chat:           { cheap: MODELS.haiku, premium: MODELS.sonnet },
+  classification: { cheap: MODELS.haiku, premium: MODELS.sonnet },
+  extraction:     { cheap: MODELS.haiku, premium: MODELS.sonnet },
+  filing:         { cheap: MODELS.haiku, premium: MODELS.sonnet },
+};
 
-  /**
-   * Returns correct model configuration for a task and tier.
-   * Throws if an unknown task or tier is requested.
-   */
-  public getModel(task: string, tier: string): ModelConfig {
-    const taskConfig = ModelRouter.registry[task];
-    if (!taskConfig) {
-      throw new Error(`Unknown task: ${task}`);
-    }
+export function createModelRouter(): ModelRouter {
+  function getModel(task: string, tier: string): ModelConfig {
+    const taskConfig = registry[task];
+    if (!taskConfig) throw new Error(`Unknown task: ${task}`);
     const config = taskConfig[tier];
-    if (!config) {
-      throw new Error(`Unknown tier: ${tier} for task: ${task}`);
-    }
+    if (!config) throw new Error(`Unknown tier: ${tier} for task: ${task}`);
     return config;
   }
 
-  /**
-   * Estimates cost given token counts.
-   */
-  public estimateCost(
-    config: ModelConfig,
-    inputTokens: number,
-    outputTokens: number
-  ): number {
+  function estimateCost(config: ModelConfig, inputTokens: number, outputTokens: number): number {
     const inputCost = (inputTokens / 1_000_000) * config.inputCostPerMillion;
     const outputCost = (outputTokens / 1_000_000) * config.outputCostPerMillion;
     return inputCost + outputCost;
   }
+
+  return { getModel, estimateCost };
 }

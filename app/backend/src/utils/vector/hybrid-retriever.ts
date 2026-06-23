@@ -13,15 +13,24 @@ type FtsRow = {
   rank: number;
 };
 
-export class HybridRetriever {
-  constructor(
-    private readonly vectorStore: VectorStore,
-    private readonly embeddingService: EmbeddingService,
-    private readonly reranker: Reranker,
-    private readonly db: postgres.Sql
-  ) {}
+export interface HybridRetriever {
+  retrieve(
+    query: string,
+    options?: {
+      vectorCandidates?: number;
+      keywordCandidates?: number;
+      finalResults?: number;
+    }
+  ): Promise<SearchResult[]>;
+}
 
-  public async retrieve(
+export function createHybridRetriever(
+  vectorStore: VectorStore,
+  embeddingService: EmbeddingService,
+  reranker: Reranker,
+  db: postgres.Sql
+): HybridRetriever {
+  async function retrieve(
     query: string,
     options?: {
       vectorCandidates?: number;
@@ -33,15 +42,13 @@ export class HybridRetriever {
     const keywordLimit = options?.keywordCandidates ?? 50;
     const finalResults = options?.finalResults ?? 5;
 
-    // 1. Vector Search
-    const queryEmbedding = await this.embeddingService.embed(query);
-    const vectorResults = await this.vectorStore.search({
+    const queryEmbedding = await embeddingService.embed(query);
+    const vectorResults = await vectorStore.search({
       embedding: queryEmbedding,
-      limit: vectorLimit
+      limit: vectorLimit,
     });
 
-    // 2. Full Text Search
-    const ftsResults = await this.db<FtsRow[]>`
+    const ftsResults = await db<FtsRow[]>`
       SELECT id, document_id, content, metadata,
              ts_rank(to_tsvector('english', content), plainto_tsquery('english', ${query})) AS rank
       FROM document_chunks
@@ -50,32 +57,24 @@ export class HybridRetriever {
       LIMIT ${keywordLimit}
     `;
 
-    const keywordResults: SearchResult[] = ftsResults.map(r => ({
+    const keywordResults: SearchResult[] = ftsResults.map((r) => ({
       id: r.id,
       documentId: r.document_id,
       content: r.content,
       similarity: Number(r.rank),
-      metadata: typeof r.metadata === 'string' ? JSON.parse(r.metadata) : (r.metadata ?? {})
+      metadata: typeof r.metadata === 'string' ? JSON.parse(r.metadata) : (r.metadata ?? {}),
     }));
 
-    // 3. Merge with RRF
     const fused = reciprocalRankFusion([vectorResults, keywordResults]);
+    if (fused.length === 0) return [];
 
-    if (fused.length === 0) {
-      return [];
-    }
+    const reranked = await reranker.rerank(query, fused.map((f) => f.item.content));
 
-    // 4. Rerank the fused results
-    const documentsToRerank = fused.map(f => f.item.content);
-    const reranked = await this.reranker.rerank(query, documentsToRerank);
-
-    // 5. Map back to SearchResult[] and return top N
-    return reranked.slice(0, finalResults).map(r => {
-      const originalItem = fused[r.index].item;
-      return {
-        ...originalItem,
-        similarity: r.relevanceScore
-      };
-    });
+    return reranked.slice(0, finalResults).map((r) => ({
+      ...fused[r.index].item,
+      similarity: r.relevanceScore,
+    }));
   }
+
+  return { retrieve };
 }
