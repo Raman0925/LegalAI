@@ -1,83 +1,55 @@
+import { ChatAnthropic } from '@langchain/anthropic';
+import { HumanMessage, SystemMessage, AIMessage } from '@langchain/core/messages';
 import { ModelProvider, CompletionParams, CompletionResult } from './model-router.js';
-import { EmbeddingService } from '../embeddings/embeddingService.js';
+import { EmbeddingService, createEmbeddingService } from '../embeddings/embeddingService.js';
 
-export class AnthropicProvider implements ModelProvider {
-  private readonly embeddingService: EmbeddingService;
+export interface AnthropicProvider extends ModelProvider {}
 
-  constructor(private readonly apiKey: string) {
-    this.embeddingService = new EmbeddingService('text-embedding-3-small');
+export function createAnthropicProvider(apiKey: string): AnthropicProvider {
+  const embeddingService: EmbeddingService = createEmbeddingService('text-embedding-3-small');
+
+  function buildMessages(params: CompletionParams) {
+    const msgs = [];
+    if (params.systemPrompt) msgs.push(new SystemMessage(params.systemPrompt));
+    for (const m of params.messages) {
+      if (m.role === 'user') msgs.push(new HumanMessage(m.content));
+      else if (m.role === 'assistant') msgs.push(new AIMessage(m.content));
+    }
+    return msgs;
   }
 
-  /**
-   * Calls the Anthropic Messages API and normalizes the response to CompletionResult.
-   */
-  public async complete(params: CompletionParams): Promise<CompletionResult> {
-    if (!this.apiKey) {
-      throw new Error('Anthropic API key is not defined');
-    }
-
-    const requestBody: Record<string, unknown> = {
+  async function complete(params: CompletionParams): Promise<CompletionResult> {
+    const llm = new ChatAnthropic({
       model: params.model,
-      max_tokens: params.maxTokens ?? 4096,
-      messages: params.messages.map(msg => ({
-        role: msg.role,
-        content: msg.content
-      }))
-    };
-
-    if (params.temperature !== undefined) {
-      requestBody.temperature = params.temperature;
-    }
-
-    if (params.systemPrompt !== undefined) {
-      requestBody.system = params.systemPrompt;
-    }
-
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'x-api-key': this.apiKey,
-        'anthropic-version': '2023-06-01',
-        'content-type': 'application/json'
-      },
-      body: JSON.stringify(requestBody)
+      apiKey,
+      maxTokens: params.maxTokens ?? 4096,
+      temperature: params.temperature,
     });
 
-    if (!response.ok) {
-      const errBody = await response.text();
-      throw new Error(`Anthropic API request failed: ${response.status} ${response.statusText} - ${errBody}`);
-    }
+    const response = await llm.invoke(buildMessages(params));
 
-    const responseData = (await response.json()) as {
-      content: Array<{
-        type: string;
-        text?: string;
-      }>;
-      usage?: {
-        input_tokens: number;
-        output_tokens: number;
-      };
-    };
+    const text =
+      typeof response.content === 'string'
+        ? response.content
+        : response.content
+            .filter((b) => b.type === 'text')
+            .map((b: any) => b.text)
+            .join('');
 
-    const textBlock = responseData.content.find(block => block.type === 'text');
-    const text = textBlock?.text || '';
-
-    const inputTokens = responseData.usage?.input_tokens ?? 0;
-    const outputTokens = responseData.usage?.output_tokens ?? 0;
+    const usage = response.usage_metadata ?? { input_tokens: 0, output_tokens: 0 };
 
     return {
       text,
       usage: {
-        inputTokens,
-        outputTokens
-      }
+        inputTokens: usage.input_tokens ?? 0,
+        outputTokens: usage.output_tokens ?? 0,
+      },
     };
   }
 
-  /**
-   * Generates embedding vector for a text.
-   */
-  public async embed(text: string): Promise<number[]> {
-    return this.embeddingService.embed(text);
+  async function embed(text: string): Promise<number[]> {
+    return embeddingService.embed(text);
   }
+
+  return { complete, embed };
 }
