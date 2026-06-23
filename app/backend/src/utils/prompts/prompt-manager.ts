@@ -9,22 +9,22 @@ export interface RenderOptions {
   validate?: boolean;  // check all variables are filled
 }
 
-export class PromptManager {
-  private readonly prompts = new Map<string, PromptTemplate>();
+export interface PromptManager {
+  register(prompt: PromptTemplate): void;
+  render(name: string, options: RenderOptions): string;
+  getVersion(name: string): string;
+  listPrompts(): Array<{ name: string; version: string }>;
+}
 
-  /**
-   * Registers a prompt template
-   */
-  public register(prompt: PromptTemplate): void {
-    this.prompts.set(prompt.name, prompt);
+export function createPromptManager(): PromptManager {
+  const prompts = new Map<string, PromptTemplate>();
+
+  function register(prompt: PromptTemplate): void {
+    prompts.set(prompt.name, prompt);
   }
 
-  /**
-   * Renders a prompt by replacing {{variable}} with values from options.variables.
-   * If validate is true, throws an error if any placeholder remains unreplaced.
-   */
-  public render(name: string, options: RenderOptions): string {
-    const prompt = this.prompts.get(name);
+  function render(name: string, options: RenderOptions): string {
+    const prompt = prompts.get(name);
     if (!prompt) {
       throw new Error(`Prompt '${name}' not found`);
     }
@@ -32,7 +32,6 @@ export class PromptManager {
     let rendered = prompt.template;
     const { variables, validate } = options;
 
-    // Replace placeholders matching {{variable}} or {{ variable }}
     rendered = rendered.replace(/\{\{\s*([^}]+?)\s*\}\}/g, (match, key) => {
       const trimmedKey = key.trim();
       if (trimmedKey in variables) {
@@ -42,7 +41,6 @@ export class PromptManager {
     });
 
     if (validate) {
-      // Check if any unresolved placeholder remains
       const hasUnresolved = /\{\{\s*([^}]+?)\s*\}\}/.test(rendered);
       if (hasUnresolved) {
         throw new Error(`Validation failed: Missing variables for template '${name}'`);
@@ -52,26 +50,27 @@ export class PromptManager {
     return rendered;
   }
 
-  /**
-   * Returns current version of a named prompt
-   */
-  public getVersion(name: string): string {
-    const prompt = this.prompts.get(name);
+  function getVersion(name: string): string {
+    const prompt = prompts.get(name);
     if (!prompt) {
       throw new Error(`Prompt '${name}' not found`);
     }
     return prompt.version;
   }
 
-  /**
-   * Returns all registered prompts and their versions
-   */
-  public listPrompts(): Array<{ name: string; version: string }> {
-    return Array.from(this.prompts.values()).map(p => ({
+  function listPrompts(): Array<{ name: string; version: string }> {
+    return Array.from(prompts.values()).map(p => ({
       name: p.name,
       version: p.version
     }));
   }
+
+  return {
+    register,
+    render,
+    getVersion,
+    listPrompts
+  };
 }
 
 /**

@@ -1,5 +1,5 @@
 import { ChatAnthropic } from '@langchain/anthropic';
-import { HumanMessage, SystemMessage, AIMessage, ToolMessage } from '@langchain/core/messages';
+import { HumanMessage, SystemMessage, AIMessage, ToolMessage, BaseMessage } from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 
@@ -63,7 +63,7 @@ export function createToolRunner(): ToolRunner {
       maxTokens: 4096,
     }).bindTools(lcTools);
 
-    const history = messages.map((m) => {
+    const history: BaseMessage[] = messages.map((m) => {
       if (m.role === 'system') return new SystemMessage(m.content);
       if (m.role === 'assistant') return new AIMessage(m.content);
       return new HumanMessage(m.content);

@@ -9,5 +9,5 @@ export const DEFAULT_CHAT_BUDGET: contextBudget = {
   responseBudget: 4000
 };
 
-export const DEFAULT_COMPANY_NAME = 'Acme Corp';
-export const DEFAULT_SUPPORT_EMAIL = 'support@acme.com';
+export const DEFAULT_COMPANY_NAME = 'LegalAI';
+export const DEFAULT_SUPPORT_EMAIL = 'support@legalai.com';

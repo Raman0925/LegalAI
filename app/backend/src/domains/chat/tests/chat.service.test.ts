@@ -1,78 +1,112 @@
+process.env.OPENAI_API_KEY = 'test-openai-key';
+process.env.ANTHROPIC_API_KEY = 'test-anthropic-key';
+process.env.COHERE_API_KEY = 'test-cohere-key';
+process.env.DATABASE_URL = 'postgresql://localhost:5432/postgres';
+
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { ChatService } from '../chat.service.js';
+
+const {
+  mockRetrieve,
+  mockAssemble,
+  mockGetBudget,
+  mockGetTokenCount,
+  mockGetModel,
+  mockComplete,
+  mockStreamComplete
+} = vi.hoisted(() => ({
+  mockRetrieve: vi.fn(),
+  mockAssemble: vi.fn(),
+  mockGetBudget: vi.fn(),
+  mockGetTokenCount: vi.fn(),
+  mockGetModel: vi.fn(),
+  mockComplete: vi.fn(),
+  mockStreamComplete: vi.fn()
+}));
+
+vi.mock('../../../utils/vector/hybrid-retriever.js', () => ({
+  createHybridRetriever: () => ({
+    retrieve: mockRetrieve
+  })
+}));
+
+vi.mock('../../../utils/tokens/contextWindowAssembler.js', () => ({
+  createContextWindowAssembler: () => ({
+    assemble: mockAssemble,
+    getBudget: mockGetBudget
+  })
+}));
+
+vi.mock('../../../utils/tokens/tokenBudgetManager.js', () => ({
+  createTokenBudgetManager: () => ({
+    getTokenCount: mockGetTokenCount
+  })
+}));
+
+vi.mock('../../../utils/ai/model-router.js', () => ({
+  createModelRouter: () => ({
+    getModel: mockGetModel
+  })
+}));
+
+vi.mock('../../../utils/ai/anthropic-provider.js', () => ({
+  createAnthropicProvider: () => ({
+    complete: mockComplete
+  })
+}));
+
+vi.mock('../../../utils/ai/streaming-provider.js', () => ({
+  createStreamingProvider: () => ({
+    streamComplete: mockStreamComplete
+  })
+}));
+
+// Now import the functions to test
+import { sendMessage, streamMessage } from '../chat.service.js';
 import { Message } from '../../../utils/tokens/types.js';
 
 describe('ChatService', () => {
-  let retriever: any;
-  let assembler: any;
-  let tokenManager: any;
-  let modelRouter: any;
-  let provider: any;
-  let streaming: any;
-  let service: ChatService;
-
   beforeEach(() => {
-    retriever = {
-      retrieve: vi.fn().mockResolvedValue([
-        { content: 'Doc content 1' },
-        { content: 'Doc content 2' }
-      ])
-    };
-    assembler = {
-      getBudget: vi.fn().mockReturnValue({
-        systemPrompt: 2000,
-        toolDefinitions: 0,
-        retrievedDocuments: 4000,
-        conversationHistory: 8000,
-        userMessage: 2000,
-        responseBudget: 4000
-      }),
-      assemble: vi.fn().mockReturnValue({
-        systemPrompt: 'System Prompt',
-        messages: [{ role: 'user', content: 'hello' }],
-        totalTokens: 100,
-        dropped: { historyMessagesDropped: 0, documentsSkipped: 0 }
-      })
-    };
-    tokenManager = {
-      getTokenCount: vi.fn().mockReturnValue(10)
-    };
-    modelRouter = {
-      getModel: vi.fn().mockReturnValue({
-        modelName: 'claude-haiku-4-5',
-        inputCostPerMillion: 0.8,
-        outputCostPerMillion: 4.0
-      })
-    };
-    provider = {
-      complete: vi.fn().mockResolvedValue({
-        text: 'Mocked response from Claude',
-        usage: { inputTokens: 50, outputTokens: 25 }
-      })
-    };
-    streaming = {
-      streamComplete: vi.fn()
-    };
+    vi.clearAllMocks();
 
-    service = new ChatService(
-      retriever,
-      assembler,
-      tokenManager,
-      modelRouter,
-      provider,
-      streaming
-    );
+    mockRetrieve.mockResolvedValue([
+      { content: 'Doc content 1' },
+      { content: 'Doc content 2' }
+    ]);
+    mockGetBudget.mockReturnValue({
+      systemPrompt: 2000,
+      toolDefinitions: 0,
+      retrievedDocuments: 4000,
+      conversationHistory: 8000,
+      userMessage: 2000,
+      responseBudget: 4000
+    });
+    mockAssemble.mockReturnValue({
+      systemPrompt: 'System Prompt',
+      messages: [{ role: 'user', content: 'hello' }],
+      totalTokens: 100,
+      dropped: { historyMessagesDropped: 0, documentsSkipped: 0 }
+    });
+    mockGetTokenCount.mockReturnValue(10);
+    mockGetModel.mockReturnValue({
+      modelName: 'claude-haiku-4-5',
+      inputCostPerMillion: 0.8,
+      outputCostPerMillion: 4.0
+    });
+    mockComplete.mockResolvedValue({
+      text: 'Mocked response from Claude',
+      usage: { inputTokens: 50, outputTokens: 25 }
+    });
   });
 
   it('sendMessage retrieves chunks, formats context, and calls provider returning text and usage', async () => {
     const history: Message[] = [];
-    const result = await service.sendMessage('hello', history, 'balanced');
+    const result = await sendMessage('hello', history, 'balanced');
 
-    expect(retriever.retrieve).toHaveBeenCalledWith('hello');
-    expect(tokenManager.getTokenCount).toHaveBeenCalledTimes(2); // for two retrieved docs
-    expect(assembler.assemble).toHaveBeenCalled();
-    expect(modelRouter.getModel).toHaveBeenCalledWith('chat', 'cheap');
-    expect(provider.complete).toHaveBeenCalled();
+    expect(mockRetrieve).toHaveBeenCalledWith('hello');
+    expect(mockGetTokenCount).toHaveBeenCalledTimes(2); // for two retrieved docs
+    expect(mockAssemble).toHaveBeenCalled();
+    expect(mockGetModel).toHaveBeenCalledWith('chat', 'cheap');
+    expect(mockComplete).toHaveBeenCalled();
     expect(result).toEqual({
       text: 'Mocked response from Claude',
       usage: { inputTokens: 50, outputTokens: 25 }
@@ -80,8 +114,8 @@ describe('ChatService', () => {
   });
 
   it('streamMessage calls streaming provider with correct params', async () => {
-    streaming.streamComplete.mockImplementation(
-      async (params: any, onChunk: any, onDone: any) => {
+    mockStreamComplete.mockImplementation(
+      async (params: any, onChunk: (text: string) => void, onDone: (usage: any) => void) => {
         onChunk('Hello ');
         onChunk('world');
         onDone({ inputTokens: 30, outputTokens: 10 });
@@ -91,16 +125,16 @@ describe('ChatService', () => {
     const chunks: string[] = [];
     let finalUsage: any = null;
 
-    await service.streamMessage(
+    await streamMessage(
       'test question',
       [],
-      (chunk) => chunks.push(chunk),
-      (usage) => { finalUsage = usage; },
+      (chunk: string) => chunks.push(chunk),
+      (usage: any) => { finalUsage = usage; },
       'fast'
     );
 
     expect(chunks).toEqual(['Hello ', 'world']);
     expect(finalUsage).toEqual({ inputTokens: 30, outputTokens: 10 });
-    expect(streaming.streamComplete).toHaveBeenCalledOnce();
+    expect(mockStreamComplete).toHaveBeenCalledOnce();
   });
 });

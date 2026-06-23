@@ -1,82 +1,89 @@
 import { TokenBudgetManager } from './tokenBudgetManager.js';
 import { Message, AssembledContext, contextBudget } from './types.js';
 
-export class ContextWindowAssembler {
-    constructor(
-        private readonly budget: contextBudget,
-        private readonly tokenManager: TokenBudgetManager
-    ) { }
+export interface ContextWindowAssembler {
+  getBudget(): contextBudget;
+  assemble(
+    systemPrompt: string,
+    history: Message[],
+    currentMessage: string,
+    documents: string[]
+  ): AssembledContext;
+}
 
-    public getBudget(): contextBudget {
-        return this.budget;
+export function createContextWindowAssembler(
+  budget: contextBudget,
+  tokenManager: TokenBudgetManager
+): ContextWindowAssembler {
+  function getBudget(): contextBudget {
+    return budget;
+  }
+
+  function assemble(
+    systemPrompt: string,
+    history: Message[],
+    currentMessage: string,
+    documents: string[]
+  ): AssembledContext {
+    const systemTokens = tokenManager.getTokenCount(systemPrompt);
+    if (systemTokens > budget.systemPrompt) {
+      throw new Error(`System prompt exceeds budget: ${systemTokens} > ${budget.systemPrompt}`);
     }
 
-    public assemble(
-        systemPrompt: string,
-        history: Message[],
-        currentMessage: string,
-        documents: string[]
-    ): AssembledContext {
-        const systemTokens = this.tokenManager.getTokenCount(systemPrompt);
-        if (systemTokens > this.budget.systemPrompt) {
-            throw new Error(`System prompt exceeds budget: ${systemTokens} > ${this.budget.systemPrompt}`);
-        }
-
-        const currentTokens = this.tokenManager.getTokenCount(currentMessage);
-        if (currentTokens > this.budget.userMessage) {
-            throw new Error(`Current message exceeds budget: ${currentTokens} > ${this.budget.userMessage}`);
-        }
-
-        const currentHistory = this.fitHistory(history, this.budget.conversationHistory, this.tokenManager);
-        const currentDocuments = this.fitDocuments(documents, this.budget.retrievedDocuments, this.tokenManager);
-        const totalTokens = systemTokens + currentHistory.used + currentTokens + currentDocuments.used;
-
-        return {
-            systemPrompt: systemPrompt,
-            messages: currentHistory.selected.concat({ role: 'user', content: currentMessage }),
-            totalTokens: totalTokens,
-            dropped: {
-                historyMessagesDropped: history.length - currentHistory.selected.length,
-                documentsSkipped: currentDocuments.skipped,
-            }
-        };
-    }
-    private fitHistory(messages: Message[], budgetTokens: number, manager: TokenBudgetManager) {
-        const selected: Message[] = [];
-        let used = 0;
-
-        // start from the most recent message and go backwards
-        for (const msg of [...messages].reverse()) {
-            const tokens = manager.getTokenCount(msg.content);
-
-            // if adding this message would exceed budget, stop
-            if (used + tokens > budgetTokens) break;
-
-            selected.unshift(msg); // add to front to keep order correct
-            used += tokens;
-        }
-
-        return { selected, used };
+    const currentTokens = tokenManager.getTokenCount(currentMessage);
+    if (currentTokens > budget.userMessage) {
+      throw new Error(`Current message exceeds budget: ${currentTokens} > ${budget.userMessage}`);
     }
 
-    private fitDocuments(documents: string[], budgetTokens: number, manager: TokenBudgetManager) {
-        const fitted: string[] = [];
-        let used = 0;
-        let skipped = 0;
+    const currentHistory = fitHistory(history, budget.conversationHistory, tokenManager);
+    const currentDocuments = fitDocuments(documents, budget.retrievedDocuments, tokenManager);
+    const totalTokens = systemTokens + currentHistory.used + currentTokens + currentDocuments.used;
 
-        for (const doc of documents) {
-            const tokens = manager.getTokenCount(doc);
+    return {
+      systemPrompt: systemPrompt,
+      messages: currentHistory.selected.concat({ role: 'user', content: currentMessage }),
+      totalTokens: totalTokens,
+      dropped: {
+        historyMessagesDropped: history.length - currentHistory.selected.length,
+        documentsSkipped: currentDocuments.skipped,
+      }
+    };
+  }
 
-            // if this doc fits, include it
-            if (used + tokens <= budgetTokens) {
-                fitted.push(doc);
-                used += tokens;
-            } else {
-                // if it doesn't fit, skip it
-                skipped++;
-            }
-        }
+  function fitHistory(messages: Message[], budgetTokens: number, manager: TokenBudgetManager) {
+    const selected: Message[] = [];
+    let used = 0;
 
-        return { fitted, used, skipped };
+    for (const msg of [...messages].reverse()) {
+      const tokens = manager.getTokenCount(msg.content);
+      if (used + tokens > budgetTokens) break;
+      selected.unshift(msg);
+      used += tokens;
     }
+
+    return { selected, used };
+  }
+
+  function fitDocuments(documents: string[], budgetTokens: number, manager: TokenBudgetManager) {
+    const fitted: string[] = [];
+    let used = 0;
+    let skipped = 0;
+
+    for (const doc of documents) {
+      const tokens = manager.getTokenCount(doc);
+      if (used + tokens <= budgetTokens) {
+        fitted.push(doc);
+        used += tokens;
+      } else {
+        skipped++;
+      }
+    }
+
+    return { fitted, used, skipped };
+  }
+
+  return {
+    getBudget,
+    assemble
+  };
 }   
