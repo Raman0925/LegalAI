@@ -11,7 +11,7 @@ export default function LoginPage() {
               ⚖️
             </span>
           </div>
-          
+
           {/* Brand Name & Tagline */}
           <h1 className="text-3xl font-extrabold tracking-tight text-zinc-900 dark:text-white">
             LegalAI

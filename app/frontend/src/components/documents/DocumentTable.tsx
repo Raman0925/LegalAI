@@ -60,13 +60,17 @@ export function DocumentTable({ documents, onSelect, onDelete }: DocumentTablePr
                     <span className="text-zinc-200 font-medium truncate">{doc.name}</span>
                   </div>
                 </td>
-                <td className="px-4 py-3 text-zinc-400 uppercase text-xs font-mono">{doc.fileType}</td>
+                <td className="px-4 py-3 text-zinc-400 uppercase text-xs font-mono">
+                  {doc.fileType}
+                </td>
                 <td className="px-4 py-3 text-zinc-400">{formatBytes(doc.sizeBytes)}</td>
                 <td className="px-4 py-3">
                   <StatusBadge status={doc.status} />
                 </td>
                 <td className="px-4 py-3 text-zinc-400">{doc.chunkCount}</td>
-                <td className="px-4 py-3 text-zinc-500 text-xs">{new Date(doc.createdAt).toLocaleDateString()}</td>
+                <td className="px-4 py-3 text-zinc-500 text-xs">
+                  {new Date(doc.createdAt).toLocaleDateString()}
+                </td>
                 <td className="px-4 py-3 text-right">
                   <button
                     onClick={(e) => {

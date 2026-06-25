@@ -26,7 +26,10 @@ const TYPE_LABELS: Record<MatterRecord['matterType'], string> = {
 
 const STATUS_CONFIG: Record<MatterRecord['status'], { label: string; className: string }> = {
   open: { label: 'Open', className: 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' },
-  in_progress: { label: 'In Progress', className: 'bg-amber-500/10 text-amber-400 border-amber-500/20' },
+  in_progress: {
+    label: 'In Progress',
+    className: 'bg-amber-500/10 text-amber-400 border-amber-500/20',
+  },
   closed: { label: 'Closed', className: 'bg-zinc-500/10 text-zinc-400 border-zinc-500/20' },
   archived: { label: 'Archived', className: 'bg-zinc-800 text-zinc-500 border-zinc-700/30' },
 };
@@ -71,7 +74,11 @@ export function MattersClient({ initialUser }: MattersClientProps) {
   async function handleCreateMatter(e: React.FormEvent) {
     e.preventDefault();
     if (!newTitle.trim()) {
-      toast({ title: 'Validation Error', description: 'Title is required.', variant: 'destructive' });
+      toast({
+        title: 'Validation Error',
+        description: 'Title is required.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -86,7 +93,7 @@ export function MattersClient({ initialUser }: MattersClientProps) {
       });
 
       toast({ title: 'Matter created', description: `"${newTitle}" has been opened.` });
-      
+
       // Reset form and reload list
       setNewTitle('');
       setNewClientName('');
@@ -160,7 +167,9 @@ export function MattersClient({ initialUser }: MattersClientProps) {
               <div className="h-12 w-12 rounded-full bg-zinc-900 border border-zinc-800 flex items-center justify-center text-zinc-500 mx-auto">
                 <Briefcase className="h-5 w-5" />
               </div>
-              <p className="text-sm text-zinc-400">No matters found. Create a new matter to get started.</p>
+              <p className="text-sm text-zinc-400">
+                No matters found. Create a new matter to get started.
+              </p>
             </div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -218,7 +227,10 @@ export function MattersClient({ initialUser }: MattersClientProps) {
       {/* New Matter Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowCreateModal(false)} />
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowCreateModal(false)}
+          />
           <form
             onSubmit={handleCreateMatter}
             className="relative bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200"

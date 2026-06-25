@@ -32,7 +32,8 @@ export function UploadDropzone({ onUploaded }: UploadDropzoneProps) {
       if (rejections.length > 0) {
         toast({
           title: 'Unsupported file',
-          description: rejections[0]?.errors?.[0]?.message || 'That file type or size is not supported.',
+          description:
+            rejections[0]?.errors?.[0]?.message || 'That file type or size is not supported.',
           variant: 'destructive',
         });
         return;
@@ -73,14 +74,18 @@ export function UploadDropzone({ onUploaded }: UploadDropzoneProps) {
     <div
       {...getRootProps()}
       className={`border-2 border-dashed rounded-xl p-8 text-center cursor-pointer transition-all ${
-        isDragActive ? 'border-violet-500 bg-violet-500/5' : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/20'
+        isDragActive
+          ? 'border-violet-500 bg-violet-500/5'
+          : 'border-zinc-800 hover:border-zinc-700 bg-zinc-900/20'
       } ${uploading ? 'pointer-events-none opacity-70' : ''}`}
     >
       <input {...getInputProps()} />
       {uploading ? (
         <div className="flex flex-col items-center gap-3">
           <Loader2 className="h-8 w-8 text-violet-400 animate-spin" />
-          <p className="text-sm text-zinc-300 font-medium truncate max-w-xs">Uploading {fileName}…</p>
+          <p className="text-sm text-zinc-300 font-medium truncate max-w-xs">
+            Uploading {fileName}…
+          </p>
           <div className="w-full max-w-xs h-1.5 bg-zinc-800 rounded-full overflow-hidden">
             <div
               className="h-full bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-200"

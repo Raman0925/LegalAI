@@ -4,7 +4,9 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createBrowserClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('No active session');
   return {
     'Content-Type': 'application/json',
@@ -77,7 +79,9 @@ async function uploadFile<T>(
   onProgress?: (percent: number) => void,
 ): Promise<T> {
   const supabase = createBrowserClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('No active session');
 
   return new Promise<T>((resolve, reject) => {
@@ -108,7 +112,9 @@ async function uploadFile<T>(
 
 async function download(path: string, filename: string): Promise<void> {
   const supabase = createBrowserClient();
-  const { data: { session } } = await supabase.auth.getSession();
+  const {
+    data: { session },
+  } = await supabase.auth.getSession();
   if (!session?.access_token) throw new Error('No active session');
 
   const res = await fetch(`${API_BASE}${path}`, {
@@ -239,28 +245,20 @@ export const api = {
         matterType?: string;
         description?: string | null;
         status?: string;
-      }
+      },
     ) => patch<MatterRecord>(`/matters/${id}`, body),
     remove: (id: string) => del(`/matters/${id}`),
     // attachDocument backend returns 200 { success: true }
     attachDocument: (id: string, documentId: string) =>
       post<{ success: boolean }>(`/matters/${id}/documents`, { documentId }),
     detachDocument: (id: string, docId: string) => del(`/matters/${id}/documents/${docId}`),
-    extractClauses: (id: string) =>
-      post<MatterClause[]>(`/matters/${id}/extract-clauses`, {}),
+    extractClauses: (id: string) => post<MatterClause[]>(`/matters/${id}/extract-clauses`, {}),
     createDraft: (id: string, body: { title: string; draftType: string; instructions: string }) =>
       post<MatterDraft>(`/matters/${id}/drafts`, body),
-    deleteDraft: (id: string, draftId: string) =>
-      del(`/matters/${id}/drafts/${draftId}`),
+    deleteDraft: (id: string, draftId: string) => del(`/matters/${id}/drafts/${draftId}`),
     exportPdf: (id: string, title: string) =>
-      download(
-        `/matters/${id}/export/pdf`,
-        `matter-${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`
-      ),
+      download(`/matters/${id}/export/pdf`, `matter-${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`),
     exportDocx: (id: string, title: string) =>
-      download(
-        `/matters/${id}/export/docx`,
-        `matter-${title.replace(/[^a-zA-Z0-9]/g, '_')}.docx`
-      ),
+      download(`/matters/${id}/export/docx`, `matter-${title.replace(/[^a-zA-Z0-9]/g, '_')}.docx`),
   },
 };

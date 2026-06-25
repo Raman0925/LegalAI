@@ -8,7 +8,12 @@ interface DeleteConfirmModalProps {
   onCancel: () => void;
 }
 
-export function DeleteConfirmModal({ documentName, isDeleting, onConfirm, onCancel }: DeleteConfirmModalProps) {
+export function DeleteConfirmModal({
+  documentName,
+  isDeleting,
+  onConfirm,
+  onCancel,
+}: DeleteConfirmModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onCancel} />
@@ -20,8 +25,9 @@ export function DeleteConfirmModal({ documentName, isDeleting, onConfirm, onCanc
           <h3 className="font-bold text-white">Delete document?</h3>
         </div>
         <p className="text-sm text-zinc-400">
-          This will permanently delete <span className="text-zinc-200 font-medium">{documentName}</span> and all of
-          its indexed chunks. This cannot be undone.
+          This will permanently delete{' '}
+          <span className="text-zinc-200 font-medium">{documentName}</span> and all of its indexed
+          chunks. This cannot be undone.
         </p>
         <div className="flex justify-end gap-3 pt-2">
           <Button variant="ghost" onClick={onCancel} disabled={isDeleting}>

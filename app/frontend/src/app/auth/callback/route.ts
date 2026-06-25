@@ -18,9 +18,7 @@ export async function GET(request: Request) {
       if (!error) {
         return NextResponse.redirect(`${origin}${safeRedirectPath}`);
       }
-
-    } catch (err) {
-  }
+    } catch (err) {}
   }
 
   return NextResponse.redirect(`${origin}/?error=auth-code-error`);

@@ -2,7 +2,14 @@
 
 import Link from 'next/link';
 import { SignOutButton } from '@/components/SignOutButton';
-import { LayoutDashboard, MessageSquare, FileText, Settings, FolderOpen, Briefcase } from 'lucide-react';
+import {
+  LayoutDashboard,
+  MessageSquare,
+  FileText,
+  Settings,
+  FolderOpen,
+  Briefcase,
+} from 'lucide-react';
 
 export type DashboardTab = 'overview' | 'chat' | 'reviewer' | 'profile';
 export type DashboardSection = DashboardTab | 'documents' | 'matters';
@@ -38,7 +45,9 @@ export function Sidebar({ active, userProfile, onSelectTab }: SidebarProps) {
         {/* Brand header */}
         <div className="p-6 flex items-center gap-3 border-b border-zinc-800/60">
           <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/10">
-            <span className="text-lg text-white" role="img" aria-label="gavel">⚖️</span>
+            <span className="text-lg text-white" role="img" aria-label="gavel">
+              ⚖️
+            </span>
           </div>
           <div>
             <h2 className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
@@ -54,7 +63,11 @@ export function Sidebar({ active, userProfile, onSelectTab }: SidebarProps) {
         <nav className="p-4 space-y-1">
           {TAB_ITEMS.map(({ key, label, icon: Icon }) =>
             onSelectTab ? (
-              <button key={key} onClick={() => onSelectTab(key)} className={navClasses(active === key)}>
+              <button
+                key={key}
+                onClick={() => onSelectTab(key)}
+                className={navClasses(active === key)}
+              >
                 <Icon className="h-4.5 w-4.5" />
                 <span>{label}</span>
               </button>
@@ -80,15 +93,17 @@ export function Sidebar({ active, userProfile, onSelectTab }: SidebarProps) {
       <div className="p-4 border-t border-zinc-800/80 bg-zinc-900/40">
         <div className="flex items-center gap-3 mb-4">
           <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow-inner uppercase">
-            {userProfile.fullName ? userProfile.fullName[0] : (userProfile.email ? userProfile.email[0] : 'U')}
+            {userProfile.fullName
+              ? userProfile.fullName[0]
+              : userProfile.email
+                ? userProfile.email[0]
+                : 'U'}
           </div>
           <div className="overflow-hidden">
             <p className="text-xs font-semibold text-zinc-200 truncate">
               {userProfile.fullName || 'Authorized User'}
             </p>
-            <p className="text-[10px] text-zinc-500 truncate">
-              {userProfile.email}
-            </p>
+            <p className="text-[10px] text-zinc-500 truncate">{userProfile.email}</p>
           </div>
         </div>
         <SignOutButton />

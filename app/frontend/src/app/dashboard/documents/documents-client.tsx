@@ -79,7 +79,12 @@ export function DocumentsClient({ initialUser }: DocumentsClientProps) {
           const match = results.find((r) => r && r[0] === doc.id);
           if (!match) return doc;
           const [, status] = match;
-          return { ...doc, status: status.status, chunkCount: status.chunkCount, errorMsg: status.errorMsg };
+          return {
+            ...doc,
+            status: status.status,
+            chunkCount: status.chunkCount,
+            errorMsg: status.errorMsg,
+          };
         }),
       );
     }, POLL_INTERVAL_MS);
@@ -130,7 +135,11 @@ export function DocumentsClient({ initialUser }: DocumentsClientProps) {
               <span className="text-sm">Loading documents…</span>
             </div>
           ) : (
-            <DocumentTable documents={documents} onSelect={setSelectedDocument} onDelete={setPendingDelete} />
+            <DocumentTable
+              documents={documents}
+              onSelect={setSelectedDocument}
+              onDelete={setPendingDelete}
+            />
           )}
         </div>
       </main>

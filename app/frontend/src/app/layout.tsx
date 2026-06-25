@@ -15,7 +15,8 @@ const geistMono = Geist_Mono({
 
 export const metadata: Metadata = {
   title: 'LegalAI — AI workflows for lawyers',
-  description: 'AI-powered contract review, legal research, and document drafting for legal professionals.',
+  description:
+    'AI-powered contract review, legal research, and document drafting for legal professionals.',
 };
 
 export default function RootLayout({

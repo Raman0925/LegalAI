@@ -15,7 +15,7 @@ import {
   Sparkles,
   User,
   Compass,
-  ArrowRight
+  ArrowRight,
 } from 'lucide-react';
 
 interface DashboardClientProps {
@@ -32,7 +32,9 @@ interface ChatMessage {
 }
 
 export function DashboardClient({ initialUser }: DashboardClientProps) {
-  const [activeTab, setActiveTab] = React.useState<'overview' | 'chat' | 'reviewer' | 'profile'>('overview');
+  const [activeTab, setActiveTab] = React.useState<'overview' | 'chat' | 'reviewer' | 'profile'>(
+    'overview',
+  );
   const [userProfile, setUserProfile] = React.useState({
     id: initialUser.id,
     email: initialUser.email,
@@ -48,7 +50,8 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
   const [messages, setMessages] = React.useState<ChatMessage[]>([
     {
       role: 'assistant',
-      content: 'Welcome to LegalAI. I can help you draft contracts, analyze clauses, or answer legal queries. Select an intelligence tier above to begin.',
+      content:
+        'Welcome to LegalAI. I can help you draft contracts, analyze clauses, or answer legal queries. Select an intelligence tier above to begin.',
     },
   ]);
   const [inputText, setInputText] = React.useState('');
@@ -126,14 +129,11 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
       // Map frontend messages history to shape backend expects
       const historyPayload = updatedHistory
         .slice(0, -1) // skip the latest user message as it is sent as "message"
-        .map(m => ({ role: m.role, content: m.content }));
+        .map((m) => ({ role: m.role, content: m.content }));
 
       const response = await api.chat.send(userMsg.content, historyPayload, chatTier);
 
-      setMessages((prev) => [
-        ...prev,
-        { role: 'assistant', content: response.text },
-      ]);
+      setMessages((prev) => [...prev, { role: 'assistant', content: response.text }]);
 
       if (response.usage) {
         setTokenStats((prev) => {
@@ -155,7 +155,11 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
       });
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: '⚠️ Error: Failed to receive response from server. Please check your credentials or API connection.' },
+        {
+          role: 'assistant',
+          content:
+            '⚠️ Error: Failed to receive response from server. Please check your credentials or API connection.',
+        },
       ]);
     } finally {
       setIsChatSending(false);
@@ -236,7 +240,7 @@ ${documentText}`;
                   Real-time metrics, system health, and operations status.
                 </p>
               </div>
-              
+
               <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 text-xs font-semibold">
                 <span className="h-2 w-2 rounded-full bg-emerald-400 animate-pulse" />
                 <span>Backend Connected</span>
@@ -256,13 +260,19 @@ ${documentText}`;
                 </div>
                 <div className="space-y-3">
                   <div className="flex justify-between items-end">
-                    <span className="text-2xl font-bold text-white">{tokenStats.total.toLocaleString()}</span>
-                    <span className="text-xs text-zinc-500">/ {tokenStats.budget.toLocaleString()} max</span>
+                    <span className="text-2xl font-bold text-white">
+                      {tokenStats.total.toLocaleString()}
+                    </span>
+                    <span className="text-xs text-zinc-500">
+                      / {tokenStats.budget.toLocaleString()} max
+                    </span>
                   </div>
                   <div className="w-full h-1.5 bg-zinc-800 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-500" 
-                      style={{ width: `${Math.min(100, (tokenStats.total / tokenStats.budget) * 100)}%` }}
+                    <div
+                      className="h-full bg-gradient-to-r from-violet-600 to-indigo-600 transition-all duration-500"
+                      style={{
+                        width: `${Math.min(100, (tokenStats.total / tokenStats.budget) * 100)}%`,
+                      }}
                     />
                   </div>
                   <div className="flex justify-between text-[11px] text-zinc-500 font-mono">
@@ -285,8 +295,10 @@ ${documentText}`;
                   <div className="text-2xl font-bold text-white capitalize">{chatTier}</div>
                   <p className="text-xs text-zinc-400">
                     {chatTier === 'fast' && 'Optimized for response speed & low-latency execution.'}
-                    {chatTier === 'balanced' && 'Intelligent cost/performance mix. (Claude 3.5 Sonnet)'}
-                    {chatTier === 'powerful' && 'Top tier reasoning for complex documents. (Claude 3 Opus)'}
+                    {chatTier === 'balanced' &&
+                      'Intelligent cost/performance mix. (Claude 3.5 Sonnet)'}
+                    {chatTier === 'powerful' &&
+                      'Top tier reasoning for complex documents. (Claude 3 Opus)'}
                   </p>
                   <div className="flex gap-1.5 mt-2">
                     {(['fast', 'balanced', 'powerful'] as const).map((tier) => (
@@ -294,8 +306,8 @@ ${documentText}`;
                         key={tier}
                         onClick={() => setChatTier(tier)}
                         className={`text-[10px] px-2.5 py-1 rounded-md font-semibold transition-all ${
-                          chatTier === tier 
-                            ? 'bg-zinc-800 border border-indigo-500/50 text-white' 
+                          chatTier === tier
+                            ? 'bg-zinc-800 border border-indigo-500/50 text-white'
                             : 'text-zinc-500 hover:text-zinc-300'
                         }`}
                       >
@@ -318,7 +330,8 @@ ${documentText}`;
                 <div className="space-y-2">
                   <div className="text-2xl font-bold text-white">SOC-2 Type II</div>
                   <p className="text-xs text-zinc-400">
-                    Private context execution. Conversations are encrypted at rest and never used to train global LLMs.
+                    Private context execution. Conversations are encrypted at rest and never used to
+                    train global LLMs.
                   </p>
                 </div>
               </div>
@@ -334,7 +347,9 @@ ${documentText}`;
                   <span>Welcome to LegalAI</span>
                 </h3>
                 <p className="text-sm text-zinc-400 max-w-2xl leading-relaxed">
-                  Start analyzing legal documents or chatting with our AI to query laws, review contract liability risks, or extract key agreements. Choose one of the quick actions below to launch.
+                  Start analyzing legal documents or chatting with our AI to query laws, review
+                  contract liability risks, or extract key agreements. Choose one of the quick
+                  actions below to launch.
                 </p>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
                   <button
@@ -342,8 +357,12 @@ ${documentText}`;
                     className="flex justify-between items-center bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800/80 hover:border-zinc-700 p-4 rounded-xl text-left group transition-all duration-200 cursor-pointer"
                   >
                     <div>
-                      <h4 className="font-semibold text-zinc-200 text-sm group-hover:text-white">AI Consultation</h4>
-                      <p className="text-xs text-zinc-500 mt-1">Chat directly with legal-trained models</p>
+                      <h4 className="font-semibold text-zinc-200 text-sm group-hover:text-white">
+                        AI Consultation
+                      </h4>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Chat directly with legal-trained models
+                      </p>
                     </div>
                     <ArrowRight className="h-4 w-4 text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-transform" />
                   </button>
@@ -353,8 +372,12 @@ ${documentText}`;
                     className="flex justify-between items-center bg-zinc-900/60 hover:bg-zinc-900 border border-zinc-800/80 hover:border-zinc-700 p-4 rounded-xl text-left group transition-all duration-200 cursor-pointer"
                   >
                     <div>
-                      <h4 className="font-semibold text-zinc-200 text-sm group-hover:text-white">Risk Auditor</h4>
-                      <p className="text-xs text-zinc-500 mt-1">Extract liabilities & obligations from agreements</p>
+                      <h4 className="font-semibold text-zinc-200 text-sm group-hover:text-white">
+                        Risk Auditor
+                      </h4>
+                      <p className="text-xs text-zinc-500 mt-1">
+                        Extract liabilities & obligations from agreements
+                      </p>
                     </div>
                     <ArrowRight className="h-4 w-4 text-zinc-500 group-hover:text-white group-hover:translate-x-1 transition-transform" />
                   </button>
@@ -383,8 +406,8 @@ ${documentText}`;
                       key={tier}
                       onClick={() => setChatTier(tier)}
                       className={`text-[10px] px-3 py-1 rounded-md capitalize font-semibold transition-all cursor-pointer ${
-                        chatTier === tier 
-                          ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-sm' 
+                        chatTier === tier
+                          ? 'bg-gradient-to-br from-violet-600 to-indigo-600 text-white shadow-sm'
                           : 'text-zinc-400 hover:text-zinc-200'
                       }`}
                     >
@@ -398,11 +421,11 @@ ${documentText}`;
             {/* Chat Messages Log */}
             <div className="flex-1 overflow-y-auto p-6 space-y-6 flex flex-col">
               {messages.map((msg, i) => (
-                <div 
-                  key={i} 
+                <div
+                  key={i}
                   className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
                 >
-                  <div 
+                  <div
                     className={`max-w-2xl px-4 py-3 rounded-2xl text-sm leading-relaxed shadow-lg ${
                       msg.role === 'user'
                         ? 'bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-br-none'
@@ -415,7 +438,7 @@ ${documentText}`;
                   </div>
                 </div>
               ))}
-              
+
               {isChatSending && (
                 <div className="flex justify-start">
                   <div className="bg-zinc-900/60 border border-zinc-800/80 px-4 py-3 rounded-2xl rounded-bl-none flex items-center gap-2.5">
@@ -460,7 +483,8 @@ ${documentText}`;
                 Contract Risk Reviewer
               </h1>
               <p className="text-sm text-zinc-400 mt-1">
-                Audits legal documents, flags high-exposure clauses, and outputs risk advisory cards.
+                Audits legal documents, flags high-exposure clauses, and outputs risk advisory
+                cards.
               </p>
             </div>
 
@@ -477,7 +501,7 @@ ${documentText}`;
                   placeholder="Paste contract terms or clause text here for immediate risk review (e.g. indemnity, liability limits, SLA targets, governing law terms)..."
                   className="w-full h-80 bg-zinc-950/80 border border-zinc-800 focus:border-violet-500 focus:ring-1 focus:ring-violet-500 rounded-xl p-4 text-sm font-mono placeholder-zinc-600 resize-none focus:outline-none"
                 />
-                
+
                 <div className="flex justify-between items-center">
                   <div className="text-xs text-zinc-500">
                     Characters: {documentText.length.toLocaleString()}
@@ -511,7 +535,8 @@ ${documentText}`;
                     </div>
                     <h4 className="font-semibold text-zinc-300">No active audit results</h4>
                     <p className="text-xs text-zinc-500 max-w-xs mt-1.5">
-                      Paste a agreement text on the left and click Audit Document to generate an automated exposure report.
+                      Paste a agreement text on the left and click Audit Document to generate an
+                      automated exposure report.
                     </p>
                   </div>
                 )}
@@ -521,7 +546,8 @@ ${documentText}`;
                     <Loader2 className="h-8 w-8 animate-spin text-violet-500 mb-4" />
                     <h4 className="font-semibold text-zinc-300">Running AI Risk Engine</h4>
                     <p className="text-xs text-zinc-500 max-w-xs mt-1.5 animate-pulse">
-                      Parsing clause semantics, consulting vector stores, and generating risk tags...
+                      Parsing clause semantics, consulting vector stores, and generating risk
+                      tags...
                     </p>
                   </div>
                 )}
@@ -530,16 +556,22 @@ ${documentText}`;
                   <div className="space-y-6 animate-fade-in">
                     {/* Summary Section */}
                     <div className="bg-zinc-900/40 border border-zinc-800 rounded-xl p-5 space-y-2">
-                      <h4 className="font-bold text-sm text-zinc-300 uppercase tracking-wider">Executive Review Summary</h4>
-                      <p className="text-sm text-zinc-400 leading-relaxed">{reviewResult.summary}</p>
+                      <h4 className="font-bold text-sm text-zinc-300 uppercase tracking-wider">
+                        Executive Review Summary
+                      </h4>
+                      <p className="text-sm text-zinc-400 leading-relaxed">
+                        {reviewResult.summary}
+                      </p>
                     </div>
 
                     {/* Identified Risks */}
                     <div className="space-y-3">
-                      <h4 className="font-bold text-xs text-zinc-400 uppercase tracking-wider">Severity Risk Matrix</h4>
+                      <h4 className="font-bold text-xs text-zinc-400 uppercase tracking-wider">
+                        Severity Risk Matrix
+                      </h4>
                       {reviewResult.risks.map((risk, idx) => (
-                        <div 
-                          key={idx} 
+                        <div
+                          key={idx}
                           className="bg-zinc-900/60 border border-zinc-800/80 rounded-xl p-4 flex gap-3.5"
                         >
                           <div className="shrink-0 mt-0.5">
@@ -573,7 +605,9 @@ ${documentText}`;
 
                     {/* Core Obligations */}
                     <div className="bg-zinc-900/30 border border-zinc-850 rounded-xl p-5 space-y-3">
-                      <h4 className="font-bold text-xs text-zinc-400 uppercase tracking-wider">Key Obligations & Deadlines</h4>
+                      <h4 className="font-bold text-xs text-zinc-400 uppercase tracking-wider">
+                        Key Obligations & Deadlines
+                      </h4>
                       <ul className="space-y-2">
                         {reviewResult.obligations.map((item, idx) => (
                           <li key={idx} className="flex gap-2.5 text-xs text-zinc-300">

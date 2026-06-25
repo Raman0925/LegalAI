@@ -3,7 +3,13 @@
 import * as React from 'react';
 import Link from 'next/link';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { api, type MatterWithDetails, type DocumentRecord, type MatterClause, type MatterDraft } from '@/lib/api';
+import {
+  api,
+  type MatterWithDetails,
+  type DocumentRecord,
+  type MatterClause,
+  type MatterDraft,
+} from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import {
   Briefcase,
@@ -60,7 +66,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
 
   // Draft Creation State
   const [draftTitle, setDraftTitle] = React.useState('');
-  const [draftType, setDraftType] = React.useState<'contract' | 'letter' | 'memo' | 'clause'>('contract');
+  const [draftType, setDraftType] = React.useState<'contract' | 'letter' | 'memo' | 'clause'>(
+    'contract',
+  );
   const [draftInstructions, setDraftInstructions] = React.useState('');
   const [isDrafting, setIsDrafting] = React.useState(false);
   const [selectedDraft, setSelectedDraft] = React.useState<MatterDraft | null>(null);
@@ -167,7 +175,11 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
   async function handleCreateDraft(e: React.FormEvent) {
     e.preventDefault();
     if (!draftTitle.trim() || !draftInstructions.trim()) {
-      toast({ title: 'Validation Error', description: 'Title and instructions are required.', variant: 'destructive' });
+      toast({
+        title: 'Validation Error',
+        description: 'Title and instructions are required.',
+        variant: 'destructive',
+      });
       return;
     }
 
@@ -273,7 +285,7 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
 
   // Filter unattached documents
   const unattachedDocs = readyDocs.filter(
-    (rd) => !details.attachedDocuments.some((ad) => ad.id === rd.id)
+    (rd) => !details.attachedDocuments.some((ad) => ad.id === rd.id),
   );
 
   return (
@@ -298,17 +310,22 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
           {/* Heading */}
           <div className="space-y-2 border-b border-zinc-900 pb-5">
             <div className="flex items-center gap-3">
-              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">{details.title}</h1>
+              <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
+                {details.title}
+              </h1>
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20 uppercase tracking-wide">
                 {details.matterType}
               </span>
             </div>
             <p className="text-sm text-zinc-400">
-              Client: <span className="text-zinc-200 font-medium">{details.clientName || 'N/A'}</span>
+              Client:{' '}
+              <span className="text-zinc-200 font-medium">{details.clientName || 'N/A'}</span>
               <span className="mx-2 text-zinc-700">|</span>
               Status: <span className="text-zinc-200 font-medium capitalize">{details.status}</span>
             </p>
-            {details.description && <p className="text-xs text-zinc-500 max-w-2xl">{details.description}</p>}
+            {details.description && (
+              <p className="text-xs text-zinc-500 max-w-2xl">{details.description}</p>
+            )}
           </div>
 
           {/* Tab Selection */}
@@ -336,7 +353,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-lg text-white">Attached Documents</h3>
-                    <p className="text-xs text-zinc-500">Attach contracts and references to include in RAG actions.</p>
+                    <p className="text-xs text-zinc-500">
+                      Attach contracts and references to include in RAG actions.
+                    </p>
                   </div>
                   <Button
                     onClick={() => setShowAttachModal(true)}
@@ -366,7 +385,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                         {details.attachedDocuments.map((doc) => {
                           const isImg = doc.fileType === 'image';
                           return (
-                            <tr key={doc.id} className="border-b border-zinc-800/60 last:border-b-0">
+                            <tr
+                              key={doc.id}
+                              className="border-b border-zinc-800/60 last:border-b-0"
+                            >
                               <td className="px-4 py-3">
                                 <div className="flex items-center gap-2 max-w-md">
                                   {isImg ? (
@@ -374,10 +396,14 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                                   ) : (
                                     <FileText className="h-4 w-4 text-violet-400 shrink-0" />
                                   )}
-                                  <span className="text-zinc-200 font-medium truncate">{doc.name}</span>
+                                  <span className="text-zinc-200 font-medium truncate">
+                                    {doc.name}
+                                  </span>
                                 </div>
                               </td>
-                              <td className="px-4 py-3 uppercase text-xs font-mono text-zinc-400">{doc.fileType}</td>
+                              <td className="px-4 py-3 uppercase text-xs font-mono text-zinc-400">
+                                {doc.fileType}
+                              </td>
                               <td className="px-4 py-3 capitalize text-zinc-400">{doc.status}</td>
                               <td className="px-4 py-3 text-right">
                                 <button
@@ -404,7 +430,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                 <div className="flex items-center justify-between">
                   <div>
                     <h3 className="font-bold text-lg text-white">Extracted Key Clauses</h3>
-                    <p className="text-xs text-zinc-500">Run structured analysis to find liabilities and key conditions.</p>
+                    <p className="text-xs text-zinc-500">
+                      Run structured analysis to find liabilities and key conditions.
+                    </p>
                   </div>
                   <Button
                     onClick={handleExtractClauses}
@@ -428,13 +456,17 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                   </div>
                 ) : details.clauses.length === 0 ? (
                   <div className="border border-dashed border-zinc-800 rounded-xl p-12 text-center bg-zinc-900/10">
-                    <p className="text-sm text-zinc-500">No clauses extracted. Click &quot;Extract Clauses&quot; to analyze.</p>
+                    <p className="text-sm text-zinc-500">
+                      No clauses extracted. Click &quot;Extract Clauses&quot; to analyze.
+                    </p>
                   </div>
                 ) : (
                   <div className="grid grid-cols-1 gap-4">
                     {details.clauses.map((clause) => {
                       const badgeClass = RISK_BADGES[clause.riskLevel || 'low'];
-                      const matchingDoc = details.attachedDocuments.find((d) => d.id === clause.documentId);
+                      const matchingDoc = details.attachedDocuments.find(
+                        (d) => d.id === clause.documentId,
+                      );
                       return (
                         <div
                           key={clause.id}
@@ -474,10 +506,15 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                 <div className="lg:col-span-4 space-y-6">
                   <div>
                     <h3 className="font-bold text-lg text-white font-sans">Generate Legal Draft</h3>
-                    <p className="text-xs text-zinc-500">Use clauses and documents context to write legal content.</p>
+                    <p className="text-xs text-zinc-500">
+                      Use clauses and documents context to write legal content.
+                    </p>
                   </div>
 
-                  <form onSubmit={handleCreateDraft} className="space-y-4 border border-zinc-800/80 p-5 rounded-xl bg-zinc-900/10">
+                  <form
+                    onSubmit={handleCreateDraft}
+                    className="space-y-4 border border-zinc-800/80 p-5 rounded-xl bg-zinc-900/10"
+                  >
                     <div className="space-y-1.5">
                       <label className="text-xs font-semibold text-zinc-400">Draft Title</label>
                       <input
@@ -505,7 +542,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                     </div>
 
                     <div className="space-y-1.5">
-                      <label className="text-xs font-semibold text-zinc-400">Generation Instructions</label>
+                      <label className="text-xs font-semibold text-zinc-400">
+                        Generation Instructions
+                      </label>
                       <textarea
                         required
                         placeholder="Detail the covenants, obligations, or context to emphasize in the draft…"
@@ -532,7 +571,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
 
                   {/* Historical Drafts List */}
                   <div className="space-y-3">
-                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">Previous Drafts</h4>
+                    <h4 className="text-xs font-bold text-zinc-400 uppercase tracking-wider">
+                      Previous Drafts
+                    </h4>
                     {details.drafts.length === 0 ? (
                       <p className="text-xs text-zinc-500 italic">No drafts generated yet.</p>
                     ) : (
@@ -549,7 +590,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                           >
                             <div className="overflow-hidden">
                               <p className="text-xs font-semibold truncate">{d.title}</p>
-                              <span className="text-[9px] uppercase font-mono text-zinc-500">{d.draftType}</span>
+                              <span className="text-[9px] uppercase font-mono text-zinc-500">
+                                {d.draftType}
+                              </span>
                             </div>
                             <button
                               onClick={(e) => {
@@ -580,13 +623,17 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                       {/* Preview header */}
                       <div className="bg-zinc-900/50 px-5 py-3 border-b border-zinc-800 flex items-center justify-between">
                         <div>
-                          <h4 className="font-bold text-zinc-200 text-sm line-clamp-1">{selectedDraft.title}</h4>
+                          <h4 className="font-bold text-zinc-200 text-sm line-clamp-1">
+                            {selectedDraft.title}
+                          </h4>
                           <span className="text-[10px] text-zinc-500 uppercase font-mono tracking-wide">
                             Previewing generated {selectedDraft.draftType}
                           </span>
                         </div>
                         <Button
-                          onClick={() => handleCopyDraftContent(selectedDraft.content, selectedDraft.id)}
+                          onClick={() =>
+                            handleCopyDraftContent(selectedDraft.content, selectedDraft.id)
+                          }
                           variant="ghost"
                           className="text-zinc-400 hover:text-white cursor-pointer shrink-0 flex items-center gap-1.5 hover:bg-zinc-800/50"
                         >
@@ -611,7 +658,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                     </div>
                   ) : (
                     <div className="border border-dashed border-zinc-800 rounded-xl h-[520px] flex items-center justify-center text-zinc-500 bg-zinc-900/5">
-                      <p className="text-sm">No draft selected. Generate or pick one from the list.</p>
+                      <p className="text-sm">
+                        No draft selected. Generate or pick one from the list.
+                      </p>
                     </div>
                   )}
                 </div>
@@ -623,7 +672,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
               <div className="space-y-6 max-w-xl">
                 <div>
                   <h3 className="font-bold text-lg text-white">Export Legal Matter Documents</h3>
-                  <p className="text-xs text-zinc-500">Download a compiled summary of matter details, extracted clauses, and drafts.</p>
+                  <p className="text-xs text-zinc-500">
+                    Download a compiled summary of matter details, extracted clauses, and drafts.
+                  </p>
                 </div>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -632,7 +683,8 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                     <div className="space-y-1">
                       <h4 className="font-bold text-zinc-200 text-sm">Download PDF Format</h4>
                       <p className="text-xs text-zinc-500 leading-relaxed">
-                        Compiles summary report, attached file references, risks, and drafts into a secure PDF.
+                        Compiles summary report, attached file references, risks, and drafts into a
+                        secure PDF.
                       </p>
                     </div>
                     <Button
@@ -654,7 +706,8 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                     <div className="space-y-1">
                       <h4 className="font-bold text-zinc-200 text-sm">Download Word Document</h4>
                       <p className="text-xs text-zinc-500 leading-relaxed">
-                        Compiles matter summary and drafts into a fully editable DOCX document matching legal standards.
+                        Compiles matter summary and drafts into a fully editable DOCX document
+                        matching legal standards.
                       </p>
                     </div>
                     <Button
@@ -680,7 +733,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
       {/* Attach Document Modal */}
       {showAttachModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={() => setShowAttachModal(false)} />
+          <div
+            className="absolute inset-0 bg-black/70 backdrop-blur-sm"
+            onClick={() => setShowAttachModal(false)}
+          />
           <div className="relative bg-zinc-900 border border-zinc-800 rounded-xl p-6 max-w-md w-full space-y-4 shadow-2xl animate-in fade-in zoom-in-95 duration-200">
             <div className="flex items-center justify-between border-b border-zinc-800/60 pb-3">
               <h3 className="font-bold text-white text-lg">Attach Document</h3>
@@ -695,8 +751,12 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
 
             {unattachedDocs.length === 0 ? (
               <div className="py-6 text-center space-y-2">
-                <p className="text-sm text-zinc-400">No ready documents in the library to attach.</p>
-                <p className="text-xs text-zinc-600">Please upload and process files in Document Library first.</p>
+                <p className="text-sm text-zinc-400">
+                  No ready documents in the library to attach.
+                </p>
+                <p className="text-xs text-zinc-600">
+                  Please upload and process files in Document Library first.
+                </p>
               </div>
             ) : (
               <div className="space-y-2.5 max-h-[300px] overflow-y-auto pr-1">
@@ -707,7 +767,9 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                   >
                     <div className="overflow-hidden mr-3">
                       <p className="text-xs font-semibold text-zinc-200 truncate">{doc.name}</p>
-                      <span className="text-[9px] uppercase font-mono text-zinc-500">{doc.fileType}</span>
+                      <span className="text-[9px] uppercase font-mono text-zinc-500">
+                        {doc.fileType}
+                      </span>
                     </div>
                     <Button
                       size="sm"

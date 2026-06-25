@@ -23,7 +23,11 @@ export function DocumentDrawer({ document, onClose }: DocumentDrawerProps) {
       <div className="relative w-full max-w-sm bg-zinc-950 border-l border-zinc-800 h-full p-6 space-y-6 overflow-y-auto">
         <div className="flex items-start justify-between gap-3">
           <h3 className="text-lg font-bold text-white break-words">{document.name}</h3>
-          <button onClick={onClose} className="text-zinc-500 hover:text-zinc-200 shrink-0 cursor-pointer" aria-label="Close">
+          <button
+            onClick={onClose}
+            className="text-zinc-500 hover:text-zinc-200 shrink-0 cursor-pointer"
+            aria-label="Close"
+          >
             <X className="h-5 w-5" />
           </button>
         </div>
