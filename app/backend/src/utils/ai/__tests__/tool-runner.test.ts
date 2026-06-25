@@ -37,7 +37,8 @@ describe('ToolRunner', () => {
     const runner = createToolRunner();
     runner.register(getOrderStatus);
 
-    const mockInvoke = vi.fn()
+    const mockInvoke = vi
+      .fn()
       .mockResolvedValueOnce({
         content: '',
         tool_calls: [
@@ -63,9 +64,7 @@ describe('ToolRunner', () => {
       } as any;
     });
 
-    const messages = [
-      { role: 'user', content: 'What is the status of order ORD-999?' } as const,
-    ];
+    const messages = [{ role: 'user', content: 'What is the status of order ORD-999?' } as const];
 
     const { result, toolCallCount } = await runner.run(messages, apiKey);
 
@@ -99,12 +98,10 @@ describe('ToolRunner', () => {
       } as any;
     });
 
-    const messages = [
-      { role: 'user', content: 'Check status' } as const,
-    ];
+    const messages = [{ role: 'user', content: 'Check status' } as const];
 
     await expect(runner.run(messages, apiKey)).rejects.toThrowError(
-      /Exceeded maximum tool execution iterations/
+      /Exceeded maximum tool execution iterations/,
     );
 
     expect(mockInvoke).toHaveBeenCalledTimes(10);

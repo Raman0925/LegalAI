@@ -27,9 +27,9 @@ const chatController = async (fastify: FastifyInstance, options: FastifyPluginOp
     },
     async (request: FastifyRequest<{ Body: ChatRequestBody }>, reply: FastifyReply) => {
       const { message, history = [], tier = 'balanced' } = request.body;
-      const result = await sendMessage(message, history, tier);
+      const result = await sendMessage(message, history, tier, request.user.id);
       return reply.code(200).send(result);
-    }
+    },
   );
 
   // POST /chat/stream
@@ -55,13 +55,13 @@ const chatController = async (fastify: FastifyInstance, options: FastifyPluginOp
         return reply.code(406).send({
           error: 'Not Acceptable',
           message: 'Accept header must contain text/event-stream',
-          statusCode: 406
+          statusCode: 406,
         });
       }
 
-      const sseStream = streamMessageIterable(message, history, tier);
+      const sseStream = streamMessageIterable(message, history, tier, request.user.id);
       return reply.sse.send(sseStream);
-    }
+    },
   );
 };
 

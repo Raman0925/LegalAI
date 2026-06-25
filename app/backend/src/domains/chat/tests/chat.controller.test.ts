@@ -8,13 +8,13 @@ vi.mock('../chat.service.js', () => {
   return {
     sendMessage: vi.fn().mockResolvedValue({
       text: 'Complete response',
-      usage: { inputTokens: 10, outputTokens: 20 }
+      usage: { inputTokens: 10, outputTokens: 20 },
     }),
     streamMessageIterable: vi.fn().mockImplementation(async function* (message, history, tier) {
       yield 'Hello';
       yield ' world';
       yield { data: { inputTokens: 5, outputTokens: 10 }, event: 'done' };
-    })
+    }),
   };
 });
 
@@ -23,6 +23,9 @@ describe('Chat Controller Routes', () => {
 
   beforeEach(async () => {
     app = Fastify();
+    app.addHook('onRequest', async (request: any) => {
+      request.user = { id: 'user-1', email: 'a@b.com' };
+    });
     app.register(fastifySSE);
     app.register(chatController, { prefix: '/chat' });
     await app.ready();
@@ -36,7 +39,7 @@ describe('Chat Controller Routes', () => {
     const response = await app.inject({
       method: 'POST',
       url: '/chat',
-      payload: {} // missing message field
+      payload: {}, // missing message field
     });
 
     expect(response.statusCode).toBe(400);
@@ -49,15 +52,15 @@ describe('Chat Controller Routes', () => {
       method: 'POST',
       url: '/chat',
       payload: {
-        message: 'hello'
-      }
+        message: 'hello',
+      },
     });
 
     expect(response.statusCode).toBe(200);
     const body = JSON.parse(response.payload);
     expect(body).toEqual({
       text: 'Complete response',
-      usage: { inputTokens: 10, outputTokens: 20 }
+      usage: { inputTokens: 10, outputTokens: 20 },
     });
   });
 
@@ -66,18 +69,18 @@ describe('Chat Controller Routes', () => {
       method: 'POST',
       url: '/chat/stream',
       headers: {
-        accept: 'text/event-stream'
+        accept: 'text/event-stream',
       },
       payload: {
-        message: 'hello'
-      }
+        message: 'hello',
+      },
     });
 
     expect(response.statusCode).toBe(200);
     expect(response.headers['content-type']).toBe('text/event-stream');
 
     const lines = response.payload.split('\n');
-    
+
     // We expect text chunks emitted, followed by the done event and token usage
     expect(lines).toContain('data: Hello');
     expect(lines).toContain('data:  world');

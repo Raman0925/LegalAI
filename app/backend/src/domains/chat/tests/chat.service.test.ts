@@ -12,7 +12,7 @@ const {
   mockGetTokenCount,
   mockGetModel,
   mockComplete,
-  mockStreamComplete
+  mockStreamComplete,
 } = vi.hoisted(() => ({
   mockRetrieve: vi.fn(),
   mockAssemble: vi.fn(),
@@ -20,44 +20,44 @@ const {
   mockGetTokenCount: vi.fn(),
   mockGetModel: vi.fn(),
   mockComplete: vi.fn(),
-  mockStreamComplete: vi.fn()
+  mockStreamComplete: vi.fn(),
 }));
 
 vi.mock('../../../utils/vector/hybrid-retriever.js', () => ({
   createHybridRetriever: () => ({
-    retrieve: mockRetrieve
-  })
+    retrieve: mockRetrieve,
+  }),
 }));
 
 vi.mock('../../../utils/tokens/contextWindowAssembler.js', () => ({
   createContextWindowAssembler: () => ({
     assemble: mockAssemble,
-    getBudget: mockGetBudget
-  })
+    getBudget: mockGetBudget,
+  }),
 }));
 
 vi.mock('../../../utils/tokens/tokenBudgetManager.js', () => ({
   createTokenBudgetManager: () => ({
-    getTokenCount: mockGetTokenCount
-  })
+    getTokenCount: mockGetTokenCount,
+  }),
 }));
 
 vi.mock('../../../utils/ai/model-router.js', () => ({
   createModelRouter: () => ({
-    getModel: mockGetModel
-  })
+    getModel: mockGetModel,
+  }),
 }));
 
 vi.mock('../../../utils/ai/anthropic-provider.js', () => ({
   createAnthropicProvider: () => ({
-    complete: mockComplete
-  })
+    complete: mockComplete,
+  }),
 }));
 
 vi.mock('../../../utils/ai/streaming-provider.js', () => ({
   createStreamingProvider: () => ({
-    streamComplete: mockStreamComplete
-  })
+    streamComplete: mockStreamComplete,
+  }),
 }));
 
 // Now import the functions to test
@@ -68,33 +68,31 @@ describe('ChatService', () => {
   beforeEach(() => {
     vi.clearAllMocks();
 
-    mockRetrieve.mockResolvedValue([
-      { content: 'Doc content 1' },
-      { content: 'Doc content 2' }
-    ]);
+    mockRetrieve.mockResolvedValue([{ content: 'Doc content 1' }, { content: 'Doc content 2' }]);
     mockGetBudget.mockReturnValue({
       systemPrompt: 2000,
       toolDefinitions: 0,
       retrievedDocuments: 4000,
       conversationHistory: 8000,
       userMessage: 2000,
-      responseBudget: 4000
+      responseBudget: 4000,
     });
     mockAssemble.mockReturnValue({
       systemPrompt: 'System Prompt',
       messages: [{ role: 'user', content: 'hello' }],
       totalTokens: 100,
-      dropped: { historyMessagesDropped: 0, documentsSkipped: 0 }
+      fittedDocuments: ['Doc content 1'],
+      dropped: { historyMessagesDropped: 0, documentsSkipped: 0 },
     });
     mockGetTokenCount.mockReturnValue(10);
     mockGetModel.mockReturnValue({
       modelName: 'claude-haiku-4-5',
       inputCostPerMillion: 0.8,
-      outputCostPerMillion: 4.0
+      outputCostPerMillion: 4.0,
     });
     mockComplete.mockResolvedValue({
       text: 'Mocked response from Claude',
-      usage: { inputTokens: 50, outputTokens: 25 }
+      usage: { inputTokens: 50, outputTokens: 25 },
     });
   });
 
@@ -102,14 +100,13 @@ describe('ChatService', () => {
     const history: Message[] = [];
     const result = await sendMessage('hello', history, 'balanced');
 
-    expect(mockRetrieve).toHaveBeenCalledWith('hello');
-    expect(mockGetTokenCount).toHaveBeenCalledTimes(2); // for two retrieved docs
+    expect(mockRetrieve).toHaveBeenCalledWith('hello', { userId: undefined });
     expect(mockAssemble).toHaveBeenCalled();
     expect(mockGetModel).toHaveBeenCalledWith('chat', 'cheap');
     expect(mockComplete).toHaveBeenCalled();
     expect(result).toEqual({
       text: 'Mocked response from Claude',
-      usage: { inputTokens: 50, outputTokens: 25 }
+      usage: { inputTokens: 50, outputTokens: 25 },
     });
   });
 
@@ -119,7 +116,7 @@ describe('ChatService', () => {
         onChunk('Hello ');
         onChunk('world');
         onDone({ inputTokens: 30, outputTokens: 10 });
-      }
+      },
     );
 
     const chunks: string[] = [];
@@ -129,8 +126,10 @@ describe('ChatService', () => {
       'test question',
       [],
       (chunk: string) => chunks.push(chunk),
-      (usage: any) => { finalUsage = usage; },
-      'fast'
+      (usage: any) => {
+        finalUsage = usage;
+      },
+      'fast',
     );
 
     expect(chunks).toEqual(['Hello ', 'world']);

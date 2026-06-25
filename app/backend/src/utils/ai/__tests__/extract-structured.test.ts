@@ -27,7 +27,7 @@ describe('extractStructured', () => {
       streetAddress: '1600 Amphitheatre Pkwy',
       city: 'Mountain View',
       country: 'USA',
-      postalCode: '94043'
+      postalCode: '94043',
     };
 
     const mockInvoke = vi.fn().mockResolvedValue({
@@ -36,56 +36,52 @@ describe('extractStructured', () => {
           name: 'extractShippingAddress',
           args: mockAddress,
           id: 'toolu_addr_1',
-        }
-      ]
+        },
+      ],
     });
 
     const mockBindTools = vi.fn().mockReturnValue({
-      invoke: mockInvoke
+      invoke: mockInvoke,
     });
 
     vi.mocked(ChatAnthropic).mockImplementation(() => {
       return {
-        bindTools: mockBindTools
+        bindTools: mockBindTools,
       } as any;
     });
 
     const result = await extractStructured(
       'Deliver to John Doe at 1600 Amphitheatre Pkwy, Mountain View, USA, ZIP 94043',
       extractShippingAddress,
-      apiKey
+      apiKey,
     );
 
     expect(result).toEqual(mockAddress);
     expect(mockBindTools).toHaveBeenCalledWith(
       expect.any(Array),
       expect.objectContaining({
-        tool_choice: { type: 'tool', name: 'extractShippingAddress' }
-      })
+        tool_choice: { type: 'tool', name: 'extractShippingAddress' },
+      }),
     );
   });
 
   it("extractStructured throws when model doesn't call the expected tool", async () => {
     const mockInvoke = vi.fn().mockResolvedValue({
-      tool_calls: []
+      tool_calls: [],
     });
 
     const mockBindTools = vi.fn().mockReturnValue({
-      invoke: mockInvoke
+      invoke: mockInvoke,
     });
 
     vi.mocked(ChatAnthropic).mockImplementation(() => {
       return {
-        bindTools: mockBindTools
+        bindTools: mockBindTools,
       } as any;
     });
 
     await expect(
-      extractStructured(
-        'Hello there!',
-        extractShippingAddress,
-        apiKey
-      )
+      extractStructured('Hello there!', extractShippingAddress, apiKey),
     ).rejects.toThrowError(/Model did not call the expected tool: extractShippingAddress/);
   });
 });

@@ -7,13 +7,17 @@ import authMiddleware from '#middlewares/auth.middleware.js';
 import userController from '#domains/user/user.controller.js';
 import chatController from '#domains/chat/chat.controller.js';
 import healthController from '#domains/health/health.controller.js';
+import documentController from '#domains/document/document.controller.js';
+import matterController from '#domains/matter/matter.controller.js';
 import fastifySSE from '@fastify/sse';
 import loggerConfig from '#config/loggerConfig.js';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import websocket from '@fastify/websocket';
 import cors from '@fastify/cors';
+import multipart from '@fastify/multipart';
 import { swaggerConfig, swaggerUiConfig } from '#config/swaggerConfig.js';
+import { MAX_UPLOAD_BYTES } from '#domains/document/document.constant.js';
 
 const fastify = Fastify({ logger: loggerConfig });
 
@@ -26,6 +30,7 @@ fastify.register(cors, {
 fastify.register(dbConnector);
 fastify.register(websocket);
 fastify.register(fastifySSE.default);
+fastify.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES } });
 fastify.register(swagger, swaggerConfig);
 fastify.register(swaggerUi, swaggerUiConfig);
 
@@ -37,6 +42,8 @@ fastify.addHook('preHandler', authMiddleware);
 fastify.register(healthController);
 fastify.register(userController, { prefix: '/auth' });
 fastify.register(chatController, { prefix: '/chat' });
+fastify.register(documentController, { prefix: '/documents' });
+fastify.register(matterController, { prefix: '/matters' });
 
 // Register global error handler
 fastify.setErrorHandler(errorHandler);

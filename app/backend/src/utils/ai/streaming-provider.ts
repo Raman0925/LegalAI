@@ -6,7 +6,7 @@ export interface StreamingProvider {
   streamComplete(
     params: CompletionParams,
     onChunk: (text: string) => void,
-    onDone: (usage: { inputTokens: number; outputTokens: number }) => void
+    onDone: (usage: { inputTokens: number; outputTokens: number }) => void,
   ): Promise<void>;
 }
 
@@ -14,7 +14,7 @@ export function createStreamingProvider(apiKey: string): StreamingProvider {
   async function streamComplete(
     params: CompletionParams,
     onChunk: (text: string) => void,
-    onDone: (usage: { inputTokens: number; outputTokens: number }) => void
+    onDone: (usage: { inputTokens: number; outputTokens: number }) => void,
   ): Promise<void> {
     const llm = new ChatAnthropic({
       model: params.model,

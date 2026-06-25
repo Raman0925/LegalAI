@@ -6,8 +6,5 @@ export const DEFAULT_CHAT_BUDGET: contextBudget = {
   retrievedDocuments: 4000,
   conversationHistory: 8000,
   userMessage: 2000,
-  responseBudget: 4000
+  responseBudget: 4000,
 };
-
-export const DEFAULT_COMPANY_NAME = 'LegalAI';
-export const DEFAULT_SUPPORT_EMAIL = 'support@legalai.com';

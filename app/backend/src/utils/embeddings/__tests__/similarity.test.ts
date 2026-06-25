@@ -29,7 +29,7 @@ describe('EmbeddingService.findMostSimilar', () => {
     const candidates = [
       [0, 1, 0],
       [1, 0, 0],
-      [0, 0, 1]
+      [0, 0, 1],
     ];
     const result = service.findMostSimilar(query, candidates);
     expect(result.index).toBe(1);

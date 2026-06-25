@@ -14,8 +14,8 @@ async function dbConnectorPlugin(fastify: FastifyInstance, options: FastifyPlugi
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
     ssl: {
-      rejectUnauthorized: false
-    }
+      rejectUnauthorized: false,
+    },
   });
 
   // Test the connection immediately on startup

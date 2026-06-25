@@ -11,7 +11,7 @@ describe('ContextWindowAssembler', () => {
       retrievedDocuments: 50,
       conversationHistory: 100,
       userMessage: 30,
-      responseBudget: 0
+      responseBudget: 0,
     };
 
     const tokenManager = createTokenBudgetManager(mockBudget);
@@ -21,7 +21,7 @@ describe('ContextWindowAssembler', () => {
       const systemPrompt = 'Short prompt';
       const history: Message[] = [
         { role: 'user', content: 'Hello' },
-        { role: 'assistant', content: 'Hi' }
+        { role: 'assistant', content: 'Hi' },
       ];
       const currentMessage = 'How?';
       const documents = ['Doc 1', 'Doc 2'];
@@ -45,16 +45,20 @@ describe('ContextWindowAssembler', () => {
         retrievedDocuments: 50,
         conversationHistory: 10,
         userMessage: 30,
-        responseBudget: 0
+        responseBudget: 0,
       };
       const tokenManager = createTokenBudgetManager(mockBudget);
       const assembler = createContextWindowAssembler(mockBudget, tokenManager);
 
       const systemPrompt = 'Helper';
       const history: Message[] = [
-        { role: 'user', content: 'This message is extremely long and will definitely exceed the ten token history budget.' },
+        {
+          role: 'user',
+          content:
+            'This message is extremely long and will definitely exceed the ten token history budget.',
+        },
         { role: 'assistant', content: 'Hi' },
-        { role: 'user', content: 'Okay' }
+        { role: 'user', content: 'Okay' },
       ];
       const currentMessage = 'Test';
       const documents: string[] = [];
@@ -72,7 +76,7 @@ describe('ContextWindowAssembler', () => {
         retrievedDocuments: 10,
         conversationHistory: 100,
         userMessage: 30,
-        responseBudget: 0
+        responseBudget: 0,
       };
       const tokenManager = createTokenBudgetManager(mockBudget);
       const assembler = createContextWindowAssembler(mockBudget, tokenManager);
@@ -83,7 +87,7 @@ describe('ContextWindowAssembler', () => {
       const documents = [
         'Short doc',
         'This is a very long document that is definitely more than ten tokens and should be skipped by the assembler.',
-        'Short doc 2'
+        'Short doc 2',
       ];
 
       const result = assembler.assemble(systemPrompt, history, currentMessage, documents);
@@ -98,7 +102,7 @@ describe('ContextWindowAssembler', () => {
         retrievedDocuments: 50,
         conversationHistory: 100,
         userMessage: 30,
-        responseBudget: 0
+        responseBudget: 0,
       };
       const tokenManager = createTokenBudgetManager(mockBudget);
       const assembler = createContextWindowAssembler(mockBudget, tokenManager);
@@ -120,14 +124,15 @@ describe('ContextWindowAssembler', () => {
         retrievedDocuments: 50,
         conversationHistory: 100,
         userMessage: 5,
-        responseBudget: 0
+        responseBudget: 0,
       };
       const tokenManager = createTokenBudgetManager(mockBudget);
       const assembler = createContextWindowAssembler(mockBudget, tokenManager);
 
       const systemPrompt = 'Helper';
       const history: Message[] = [];
-      const currentMessage = 'This is a very long user message that will easily exceed five tokens.';
+      const currentMessage =
+        'This is a very long user message that will easily exceed five tokens.';
       const documents: string[] = [];
 
       expect(() => {

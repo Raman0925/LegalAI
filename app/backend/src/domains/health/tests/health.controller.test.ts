@@ -9,12 +9,12 @@ describe('Health Controller Routes', () => {
   beforeEach(async () => {
     app = Fastify();
     mockQuery = vi.fn();
-    
+
     // Decorate the fastify instance with the mocked pg pool
     app.decorate('pg', {
       query: mockQuery,
     });
-    
+
     app.register(healthController);
     await app.ready();
   });

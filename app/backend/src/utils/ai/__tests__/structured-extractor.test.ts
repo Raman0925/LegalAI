@@ -42,7 +42,7 @@ describe('StructuredExtractor', () => {
     const result = await extractor.extract(
       TicketSchema,
       'Classify the support ticket.',
-      'Help, I cannot connect to my Postgres database!'
+      'Help, I cannot connect to my Postgres database!',
     );
 
     expect(result).toEqual(mockOutput);
@@ -50,7 +50,7 @@ describe('StructuredExtractor', () => {
       expect.objectContaining({
         model: 'claude-haiku-4-5',
         apiKey: apiKey,
-      })
+      }),
     );
     expect(mockInvoke).toHaveBeenCalled();
   });
@@ -67,7 +67,7 @@ describe('StructuredExtractor', () => {
 
     const extractor = createStructuredExtractor(apiKey);
     await expect(
-      extractor.extract(TicketSchema, 'Classify the support ticket.', 'Hello!')
+      extractor.extract(TicketSchema, 'Classify the support ticket.', 'Hello!'),
     ).rejects.toThrowError('API Error');
   });
 
@@ -79,7 +79,8 @@ describe('StructuredExtractor', () => {
       requiresHuman: false,
     };
 
-    const mockInvoke = vi.fn()
+    const mockInvoke = vi
+      .fn()
       .mockRejectedValueOnce(new Error('Temporary Network Error'))
       .mockResolvedValueOnce(mockOutput);
 
@@ -95,7 +96,7 @@ describe('StructuredExtractor', () => {
     const result = await extractor.extractWithRetry(
       TicketSchema,
       'Classify the support ticket.',
-      'How do I view my invoice?'
+      'How do I view my invoice?',
     );
 
     expect(result).toEqual(mockOutput);
@@ -122,7 +123,7 @@ describe('StructuredExtractor', () => {
     const result = await extractor.extract(
       ContactSchema,
       'Extract contact information.',
-      'My name is John Doe, reach me at john@example.com. I work at Acme Inc.'
+      'My name is John Doe, reach me at john@example.com. I work at Acme Inc.',
     );
 
     expect(result).toEqual(mockOutput);

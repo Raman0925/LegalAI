@@ -17,8 +17,11 @@ export interface Chunker {
 }
 
 export function createChunker(options?: ChunkOptions): Chunker {
-  const chunkSize = options?.maxTokens ?? 512;
-  const chunkOverlap = options?.overlapTokens ?? 50;
+  // RecursiveCharacterTextSplitter measures in characters, not tokens.
+  // Approximate: 1 token ≈ 4 characters (OpenAI rule of thumb).
+  const CHARS_PER_TOKEN = 4;
+  const chunkSize = (options?.maxTokens ?? 500) * CHARS_PER_TOKEN; // default: 2000 chars ≈ 500 tokens
+  const chunkOverlap = (options?.overlapTokens ?? 50) * CHARS_PER_TOKEN; // default: 200 chars ≈ 50 tokens
 
   const splitter = new RecursiveCharacterTextSplitter({
     chunkSize,

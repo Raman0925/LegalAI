@@ -25,20 +25,20 @@ console.log('Connecting to database...');
 const pool = new pg.Pool({
   connectionString,
   ssl: {
-    rejectUnauthorized: false
-  }
+    rejectUnauthorized: false,
+  },
 });
 
 async function run() {
   const client = await pool.connect();
   try {
     console.log('Successfully connected. Running migration SQL...');
-    
+
     // Execute SQL content as a single transaction or query block
     await client.query('BEGIN');
     await client.query(sql);
     await client.query('COMMIT');
-    
+
     console.log('Migration completed successfully!');
   } catch (error) {
     await client.query('ROLLBACK');

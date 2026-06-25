@@ -4,7 +4,10 @@ import { createUserRepository } from './user.repository.js';
 
 export interface UserService {
   getProfile(userId: string): Promise<any>;
-  updateProfile(userId: string, updates: { fullName: string | null; avatarUrl: string | null }): Promise<any>;
+  updateProfile(
+    userId: string,
+    updates: { fullName: string | null; avatarUrl: string | null },
+  ): Promise<any>;
 }
 
 export function createUserService(pgPool: pg.Pool): UserService {
@@ -20,12 +23,15 @@ export function createUserService(pgPool: pg.Pool): UserService {
     return profile;
   }
 
-  async function updateProfile(userId: string, updates: { fullName: string | null; avatarUrl: string | null }): Promise<any> {
+  async function updateProfile(
+    userId: string,
+    updates: { fullName: string | null; avatarUrl: string | null },
+  ): Promise<any> {
     return repository.updateProfile(userId, updates);
   }
 
   return {
     getProfile,
-    updateProfile
+    updateProfile,
   };
 }

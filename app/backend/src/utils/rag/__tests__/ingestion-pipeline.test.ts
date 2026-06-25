@@ -13,20 +13,20 @@ beforeEach(() => {
   mockChunker = {
     chunk: vi.fn().mockReturnValue([
       { text: 'Chunk 1', startChar: 0, endChar: 7, tokenCount: 2 },
-      { text: 'Chunk 2', startChar: 8, endChar: 15, tokenCount: 2 }
-    ])
+      { text: 'Chunk 2', startChar: 8, endChar: 15, tokenCount: 2 },
+    ]),
   } as any;
 
   mockEmbeddingService = {
     embedBatch: vi.fn().mockResolvedValue([
       [0.1, 0.2],
-      [0.3, 0.4]
-    ])
+      [0.3, 0.4],
+    ]),
   } as any;
 
   mockVectorStore = {
     insertBatch: vi.fn().mockResolvedValue(['id-1', 'id-2']),
-    deleteByDocumentId: vi.fn().mockResolvedValue(1)
+    deleteByDocumentId: vi.fn().mockResolvedValue(1),
   } as any;
 
   pipeline = createIngestionPipeline(mockChunker, mockEmbeddingService, mockVectorStore);

@@ -1,6 +1,6 @@
 export function reciprocalRankFusion<T extends { id: string }>(
   lists: T[][],
-  k = 60
+  k = 60,
 ): Array<{ item: T; score: number }> {
   const scores = new Map<string, { item: T; score: number }>();
 

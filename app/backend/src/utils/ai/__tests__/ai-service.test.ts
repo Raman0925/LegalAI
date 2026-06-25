@@ -13,10 +13,10 @@ describe('AIService', () => {
   beforeEach(() => {
     provider = {
       complete: vi.fn(),
-      embed: vi.fn()
+      embed: vi.fn(),
     };
     streaming = {
-      streamComplete: vi.fn()
+      streamComplete: vi.fn(),
     };
     modelRouter = createModelRouter();
     costTracker = createCostTracker(modelRouter);
@@ -26,12 +26,12 @@ describe('AIService', () => {
   it('complete retries on failure then succeeds with exponential backoff delay', async () => {
     const mockParams: CompletionParams = {
       model: 'claude-haiku-4-5',
-      messages: [{ role: 'user', content: 'test message' }]
+      messages: [{ role: 'user', content: 'test message' }],
     };
     const mockMetadata = {
       feature: 'chat-bot',
       task: 'chat',
-      tier: 'cheap'
+      tier: 'cheap',
     };
 
     // First attempt fails, second succeeds
@@ -39,14 +39,14 @@ describe('AIService', () => {
       .mockRejectedValueOnce(new Error('Temporary Server Error (503)'))
       .mockResolvedValueOnce({
         text: 'Successful response',
-        usage: { inputTokens: 10, outputTokens: 20 }
+        usage: { inputTokens: 10, outputTokens: 20 },
       });
 
     const setTimeoutSpy = vi.spyOn(global, 'setTimeout');
 
     const result = await aiService.complete(mockParams, mockMetadata, {
       maxRetries: 3,
-      initialDelayMs: 2
+      initialDelayMs: 2,
     });
 
     expect(result.text).toBe('Successful response');
@@ -71,22 +71,24 @@ describe('AIService', () => {
   it('complete does not retry on 400 Bad Request error', async () => {
     const mockParams: CompletionParams = {
       model: 'claude-haiku-4-5',
-      messages: [{ role: 'user', content: 'test message' }]
+      messages: [{ role: 'user', content: 'test message' }],
     };
     const mockMetadata = {
       feature: 'chat-bot',
       task: 'chat',
-      tier: 'cheap'
+      tier: 'cheap',
     };
 
     // Throw a 400 Bad Request error
-    provider.complete.mockRejectedValueOnce(new Error('Anthropic API request failed: 400 Bad Request'));
+    provider.complete.mockRejectedValueOnce(
+      new Error('Anthropic API request failed: 400 Bad Request'),
+    );
 
     await expect(
       aiService.complete(mockParams, mockMetadata, {
         maxRetries: 3,
-        initialDelayMs: 1
-      })
+        initialDelayMs: 1,
+      }),
     ).rejects.toThrow('400 Bad Request');
 
     // Should only be called once since 400 is non-retryable
@@ -99,12 +101,12 @@ describe('AIService', () => {
   it('complete does not retry on invalid API key error', async () => {
     const mockParams: CompletionParams = {
       model: 'claude-haiku-4-5',
-      messages: [{ role: 'user', content: 'test message' }]
+      messages: [{ role: 'user', content: 'test message' }],
     };
     const mockMetadata = {
       feature: 'chat-bot',
       task: 'chat',
-      tier: 'cheap'
+      tier: 'cheap',
     };
 
     // Throw an API key error
@@ -113,8 +115,8 @@ describe('AIService', () => {
     await expect(
       aiService.complete(mockParams, mockMetadata, {
         maxRetries: 3,
-        initialDelayMs: 1
-      })
+        initialDelayMs: 1,
+      }),
     ).rejects.toThrow('Anthropic API key is not defined');
 
     // Should only be called once since invalid API key is non-retryable
@@ -124,21 +126,19 @@ describe('AIService', () => {
   it('stream delegates to streaming provider and tracks cost on completion', async () => {
     const mockParams: CompletionParams = {
       model: 'claude-haiku-4-5',
-      messages: [{ role: 'user', content: 'test stream' }]
+      messages: [{ role: 'user', content: 'test stream' }],
     };
     const mockMetadata = {
       feature: 'chat-bot',
       task: 'chat',
-      tier: 'cheap'
+      tier: 'cheap',
     };
 
-    streaming.streamComplete.mockImplementation(
-      async (params: any, onChunk: any, onDone: any) => {
-        onChunk('Hello ');
-        onChunk('stream');
-        onDone({ inputTokens: 15, outputTokens: 25 });
-      }
-    );
+    streaming.streamComplete.mockImplementation(async (params: any, onChunk: any, onDone: any) => {
+      onChunk('Hello ');
+      onChunk('stream');
+      onDone({ inputTokens: 15, outputTokens: 25 });
+    });
 
     const chunks: string[] = [];
     let finalUsage: any = null;
@@ -147,7 +147,9 @@ describe('AIService', () => {
       mockParams,
       mockMetadata,
       (chunk) => chunks.push(chunk),
-      (usage) => { finalUsage = usage; }
+      (usage) => {
+        finalUsage = usage;
+      },
     );
 
     expect(chunks).toEqual(['Hello ', 'stream']);

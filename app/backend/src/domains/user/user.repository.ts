@@ -6,7 +6,10 @@ import pg from 'pg';
  */
 export interface UserRepository {
   findById(id: string): Promise<any>;
-  updateProfile(id: string, profileData: { fullName: string | null; avatarUrl: string | null }): Promise<any>;
+  updateProfile(
+    id: string,
+    profileData: { fullName: string | null; avatarUrl: string | null },
+  ): Promise<any>;
 }
 
 export function createUserRepository(pgPool: pg.Pool): UserRepository {
@@ -20,7 +23,10 @@ export function createUserRepository(pgPool: pg.Pool): UserRepository {
     return result.rows[0] || null;
   }
 
-  async function updateProfile(id: string, { fullName, avatarUrl }: { fullName: string | null; avatarUrl: string | null }): Promise<any> {
+  async function updateProfile(
+    id: string,
+    { fullName, avatarUrl }: { fullName: string | null; avatarUrl: string | null },
+  ): Promise<any> {
     const query = `
       UPDATE public.profiles 
       SET 
@@ -36,6 +42,6 @@ export function createUserRepository(pgPool: pg.Pool): UserRepository {
 
   return {
     findById,
-    updateProfile
+    updateProfile,
   };
 }

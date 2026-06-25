@@ -10,36 +10,38 @@ export interface Reranker {
 
 export function createReranker(apiKey: string): Reranker {
   if (!apiKey) {
-    throw new Error("API key is required for Reranker");
+    throw new Error('API key is required for Reranker');
   }
 
   async function rerank(
     query: string,
     documents: string[],
-    topN?: number
+    topN?: number,
   ): Promise<RerankResult[]> {
     if (documents.length === 0) return [];
 
-    const response = await fetch("https://api.cohere.com/v1/rerank", {
-      method: "POST",
+    const response = await fetch('https://api.cohere.com/v1/rerank', {
+      method: 'POST',
       headers: {
-        "Authorization": `Bearer ${apiKey}`,
-        "Content-Type": "application/json"
+        Authorization: `Bearer ${apiKey}`,
+        'Content-Type': 'application/json',
       },
       body: JSON.stringify({
-        model: "rerank-english-v3.0",
+        model: 'rerank-english-v3.0',
         query,
         documents,
-        top_n: topN ?? Math.min(10, documents.length)
-      })
+        top_n: topN ?? Math.min(10, documents.length),
+      }),
     });
 
     if (!response.ok) {
       const errText = await response.text();
-      throw new Error(`Cohere Rerank API request failed: ${response.status} ${response.statusText} - ${errText}`);
+      throw new Error(
+        `Cohere Rerank API request failed: ${response.status} ${response.statusText} - ${errText}`,
+      );
     }
 
-    const data = await response.json() as {
+    const data = (await response.json()) as {
       results: Array<{
         index: number;
         relevance_score: number;
@@ -47,13 +49,13 @@ export function createReranker(apiKey: string): Reranker {
     };
 
     if (!data?.results) {
-      throw new Error("Malformed response from Cohere Rerank API");
+      throw new Error('Malformed response from Cohere Rerank API');
     }
 
-    return data.results.map(r => ({
+    return data.results.map((r) => ({
       index: r.index,
       relevanceScore: r.relevance_score,
-      content: documents[r.index]
+      content: documents[r.index],
     }));
   }
 

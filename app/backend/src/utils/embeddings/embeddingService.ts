@@ -7,10 +7,14 @@ export interface EmbeddingService {
   findMostSimilar(query: number[], candidates: number[][]): { index: number; similarity: number };
 }
 
-export function createEmbeddingService(model: string = 'text-embedding-3-small'): EmbeddingService {
+export function createEmbeddingService(
+  model: string = 'text-embedding-3-small',
+  batchSize?: number,
+): EmbeddingService {
   const embeddings = new OpenAIEmbeddings({
     model,
     apiKey: process.env.OPENAI_API_KEY,
+    ...(batchSize ? { batchSize } : {}),
   });
 
   async function embed(text: string): Promise<number[]> {
@@ -24,7 +28,7 @@ export function createEmbeddingService(model: string = 'text-embedding-3-small')
 
   function findMostSimilar(
     query: number[],
-    candidates: number[][]
+    candidates: number[][],
   ): { index: number; similarity: number } {
     if (candidates.length === 0) throw new Error('Candidates list cannot be empty');
 

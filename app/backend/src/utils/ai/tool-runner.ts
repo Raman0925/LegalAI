@@ -1,5 +1,11 @@
 import { ChatAnthropic } from '@langchain/anthropic';
-import { HumanMessage, SystemMessage, AIMessage, ToolMessage, BaseMessage } from '@langchain/core/messages';
+import {
+  HumanMessage,
+  SystemMessage,
+  AIMessage,
+  ToolMessage,
+  BaseMessage,
+} from '@langchain/core/messages';
 import { tool } from '@langchain/core/tools';
 import { z } from 'zod';
 
@@ -23,7 +29,7 @@ export interface ToolRunner {
   getDefinitions(): ToolDefinition[];
   run(
     messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-    apiKey: string
+    apiKey: string,
   ): Promise<{ result: string; toolCallCount: number }>;
 }
 
@@ -41,7 +47,7 @@ export function createToolRunner(): ToolRunner {
 
   async function run(
     messages: Array<{ role: 'user' | 'assistant' | 'system'; content: string }>,
-    apiKey: string
+    apiKey: string,
   ): Promise<{ result: string; toolCallCount: number }> {
     const lcTools = Array.from(registry.values()).map((t) =>
       tool(
@@ -53,8 +59,8 @@ export function createToolRunner(): ToolRunner {
           name: t.definition.name,
           description: t.definition.description,
           schema: z.object({}),
-        }
-      )
+        },
+      ),
     );
 
     const llm = new ChatAnthropic({

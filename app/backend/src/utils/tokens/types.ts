@@ -3,8 +3,8 @@ export interface contextBudget {
   toolDefinitions: number;
   retrievedDocuments: number;
   conversationHistory: number;
-  userMessage:number;
-  responseBudget:number;
+  userMessage: number;
+  responseBudget: number;
 }
 export interface ValidationResult {
   valid: boolean;
@@ -32,6 +32,7 @@ export interface AssembledContext {
   systemPrompt: string;
   messages: Message[];
   totalTokens: number;
+  fittedDocuments: string[]; // docs that actually fit the budget, in order
   dropped: {
     historyMessagesDropped: number;
     documentsSkipped: number;

@@ -20,7 +20,7 @@ export interface CostTracker {
     feature: string,
     task: string,
     tier: string,
-    usage: { inputTokens: number; outputTokens: number }
+    usage: { inputTokens: number; outputTokens: number },
   ): CostMetrics;
   summarize(metrics: CostMetrics[]): DailyCostReport;
 }
@@ -30,18 +30,26 @@ export function createCostTracker(modelRouter: ModelRouter): CostTracker {
     feature: string,
     task: string,
     tier: string,
-    usage: { inputTokens: number; outputTokens: number }
+    usage: { inputTokens: number; outputTokens: number },
   ): CostMetrics {
     const config = modelRouter.getModel(task, tier);
     const cost = modelRouter.estimateCost(config, usage.inputTokens, usage.outputTokens);
-    return { feature, task, tier, inputTokens: usage.inputTokens, outputTokens: usage.outputTokens, cost };
+    return {
+      feature,
+      task,
+      tier,
+      inputTokens: usage.inputTokens,
+      outputTokens: usage.outputTokens,
+      cost,
+    };
   }
 
   function summarize(metrics: CostMetrics[]): DailyCostReport {
     let totalCost = 0;
     let input = 0;
     let output = 0;
-    const byFeature: Record<string, { cost: number; inputTokens: number; outputTokens: number }> = {};
+    const byFeature: Record<string, { cost: number; inputTokens: number; outputTokens: number }> =
+      {};
 
     for (const m of metrics) {
       totalCost += m.cost;

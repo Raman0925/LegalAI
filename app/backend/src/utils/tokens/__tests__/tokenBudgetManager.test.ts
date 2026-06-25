@@ -9,7 +9,7 @@ describe('TokenBudgetManager', () => {
     retrievedDocuments: 50,
     conversationHistory: 100,
     userMessage: 30,
-    responseBudget: 50
+    responseBudget: 50,
   };
 
   const manager = createTokenBudgetManager(mockBudget);
@@ -29,7 +29,7 @@ describe('TokenBudgetManager', () => {
     it('should validate successfully when all components are within budget', () => {
       const components = {
         systemPrompt: 'Short system prompt.',
-        userMessage: 'Hello!'
+        userMessage: 'Hello!',
       };
       const result = manager.validateBudget(components);
       expect(result.valid).toBe(true);
@@ -38,8 +38,9 @@ describe('TokenBudgetManager', () => {
 
     it('should report violations when a component is over budget', () => {
       const components = {
-        systemPrompt: 'This is a very very very very very very very very very very very very very long system prompt that will definitely exceed twenty tokens.',
-        userMessage: 'Hello!'
+        systemPrompt:
+          'This is a very very very very very very very very very very very very very long system prompt that will definitely exceed twenty tokens.',
+        userMessage: 'Hello!',
       };
       const result = manager.validateBudget(components);
       expect(result.valid).toBe(false);
@@ -50,7 +51,7 @@ describe('TokenBudgetManager', () => {
 
     it('should handle component names not present in the budget schema by defaulting limit to 0', () => {
       const components = {
-        unknownComponent: 'This is some text for an unknown component.'
+        unknownComponent: 'This is some text for an unknown component.',
       };
       const result = manager.validateBudget(components);
       expect(result.valid).toBe(false);
@@ -71,10 +72,12 @@ describe('TokenBudgetManager', () => {
       const text = 'One two three four five six seven eight nine ten';
       const maxTokens = 5;
       const truncated = manager.truncateToFit(text, maxTokens);
-      
+
       expect(manager.getTokenCount(truncated)).toBeLessThanOrEqual(maxTokens);
       const words = truncated.split(/\s+/);
-      expect(words[words.length - 1]).toMatch(/^(One|two|three|four|five|six|seven|eight|nine|ten)$/);
+      expect(words[words.length - 1]).toMatch(
+        /^(One|two|three|four|five|six|seven|eight|nine|ten)$/,
+      );
     });
 
     it('should return empty string if maxTokens is 0', () => {
@@ -100,11 +103,13 @@ describe('TokenBudgetManager', () => {
     it('should calculate utilization metrics correctly', () => {
       const components = {
         systemPrompt: 'System prompt',
-        userMessage: 'User message'
+        userMessage: 'User message',
       };
       const metrics = manager.getMetrics(components);
       expect(metrics.totalBudget).toBe(265); // sum of mockBudget
-      expect(metrics.totalUsed).toBe(manager.getTokenCount('System prompt') + manager.getTokenCount('User message'));
+      expect(metrics.totalUsed).toBe(
+        manager.getTokenCount('System prompt') + manager.getTokenCount('User message'),
+      );
       expect(metrics.utilization.systemPrompt).toBeGreaterThan(0);
       expect(metrics.overallUtilization).toBeGreaterThan(0);
     });

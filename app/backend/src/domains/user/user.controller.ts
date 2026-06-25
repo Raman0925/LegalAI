@@ -5,7 +5,10 @@ import { createUserService } from './user.service.js';
  * User Controller Plugin
  * Defines routes and Swagger schemas under the /auth prefix.
  */
-export default async function userController(fastify: FastifyInstance, options: FastifyPluginOptions) {
+export default async function userController(
+  fastify: FastifyInstance,
+  options: FastifyPluginOptions,
+) {
   // Instantiate UserService with Fastify's pg pool
   const userService = createUserService(fastify.pg);
 
@@ -87,7 +90,8 @@ export default async function userController(fastify: FastifyInstance, options: 
       },
     },
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { full_name, avatar_url } = (request.body as { full_name?: string | null; avatar_url?: string | null }) || {};
+      const { full_name, avatar_url } =
+        (request.body as { full_name?: string | null; avatar_url?: string | null }) || {};
 
       const updatedProfile = await userService.updateProfile(request.user.id, {
         fullName: full_name ?? null,

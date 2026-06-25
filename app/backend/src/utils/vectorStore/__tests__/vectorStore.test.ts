@@ -29,7 +29,7 @@ describe('VectorStore', () => {
 
     const chunks: InsertChunkParams[] = [
       { documentId: 'doc-1', content: 'content-1', embedding: [0.1, 0.2] },
-      { documentId: 'doc-1', content: 'content-2', embedding: [0.3, 0.4] }
+      { documentId: 'doc-1', content: 'content-2', embedding: [0.3, 0.4] },
     ];
 
     const result = await store.insertBatch(chunks);
@@ -41,8 +41,24 @@ describe('VectorStore', () => {
 
   it('should search using parameter-based vector queries and parse results', async () => {
     const mockSearchResults = [
-      { id: '1', document_id: 'doc-1', content: 'match-1', similarity: '0.95', metadata: '{"source":"pdf"}' },
-      { id: '2', document_id: 'doc-1', content: 'match-2', similarity: 0.85, metadata: { source: 'web' } }
+      {
+        id: '1',
+        document_id: 'doc-1',
+        content: 'match-1',
+        similarity: '0.95',
+        chunk_index: 0,
+        token_count: 12,
+        metadata: '{"source":"pdf"}',
+      },
+      {
+        id: '2',
+        document_id: 'doc-1',
+        content: 'match-2',
+        similarity: 0.85,
+        chunk_index: 1,
+        token_count: 8,
+        metadata: { source: 'web' },
+      },
     ];
     mockDbFn.mockResolvedValueOnce(mockSearchResults);
 
@@ -50,7 +66,7 @@ describe('VectorStore', () => {
       embedding: [0.1, 0.2, 0.3],
       limit: 5,
       minSimilarity: 0.8,
-      filter: { customer_tier: 'enterprise' }
+      filter: { customer_tier: 'enterprise' },
     };
 
     const results = await store.search(searchParams);
@@ -62,14 +78,18 @@ describe('VectorStore', () => {
       documentId: 'doc-1',
       content: 'match-1',
       similarity: 0.95,
-      metadata: { source: 'pdf' }
+      chunkIndex: 0,
+      tokenCount: 12,
+      metadata: { source: 'pdf' },
     });
     expect(results[1]).toEqual({
       id: '2',
       documentId: 'doc-1',
       content: 'match-2',
       similarity: 0.85,
-      metadata: { source: 'web' }
+      chunkIndex: 1,
+      tokenCount: 8,
+      metadata: { source: 'web' },
     });
   });
 

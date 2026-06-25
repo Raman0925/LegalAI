@@ -8,7 +8,7 @@ export interface StructuredExtractor {
     schema: z.ZodSchema<T>,
     systemPrompt: string,
     userInput: string,
-    maxRetries?: number
+    maxRetries?: number,
   ): Promise<T>;
 }
 
@@ -16,7 +16,7 @@ export function createStructuredExtractor(apiKey: string): StructuredExtractor {
   async function extract<T>(
     schema: z.ZodSchema<T>,
     systemPrompt: string,
-    userInput: string
+    userInput: string,
   ): Promise<T> {
     const llm = new ChatAnthropic({
       model: 'claude-haiku-4-5',
@@ -33,7 +33,7 @@ export function createStructuredExtractor(apiKey: string): StructuredExtractor {
     schema: z.ZodSchema<T>,
     systemPrompt: string,
     userInput: string,
-    maxRetries: number = 3
+    maxRetries: number = 3,
   ): Promise<T> {
     let lastError: Error = new Error('Unknown error');
 
@@ -47,7 +47,7 @@ export function createStructuredExtractor(apiKey: string): StructuredExtractor {
     }
 
     throw new Error(
-      `Failed to extract structured data after ${maxRetries} attempts. Last error: ${lastError.message}`
+      `Failed to extract structured data after ${maxRetries} attempts. Last error: ${lastError.message}`,
     );
   }
 
@@ -63,7 +63,7 @@ export const TicketSchema = z.object({
 
 export const ContactSchema = z.object({
   name: z.string(),
-  email: z.string().email().optional(),
+  email: z.email().optional(), // Zod v4: z.email() replaces z.string().email()
   phone: z.string().optional(),
   company: z.string().optional(),
 });

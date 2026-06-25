@@ -26,7 +26,7 @@ describe('CostTracker', () => {
   it('CostTracker.track calculates cost correctly', () => {
     const metrics = tracker.track('customer_chat', 'chat', 'cheap', {
       inputTokens: 500_000,
-      outputTokens: 250_000
+      outputTokens: 250_000,
     });
 
     expect(metrics).toEqual({
@@ -35,7 +35,7 @@ describe('CostTracker', () => {
       tier: 'cheap',
       inputTokens: 500_000,
       outputTokens: 250_000,
-      cost: 1.40
+      cost: 1.4,
     });
   });
 
@@ -47,7 +47,7 @@ describe('CostTracker', () => {
         tier: 'cheap',
         inputTokens: 100_000,
         outputTokens: 50_000,
-        cost: 0.28
+        cost: 0.28,
       },
       {
         feature: 'summarizer',
@@ -55,7 +55,7 @@ describe('CostTracker', () => {
         tier: 'premium',
         inputTokens: 200_000,
         outputTokens: 100_000,
-        cost: 2.10
+        cost: 2.1,
       },
       {
         feature: 'chat_bot',
@@ -63,8 +63,8 @@ describe('CostTracker', () => {
         tier: 'premium',
         inputTokens: 100_000,
         outputTokens: 50_000,
-        cost: 1.05
-      }
+        cost: 1.05,
+      },
     ];
 
     const summary = tracker.summarize(metrics);
@@ -72,19 +72,19 @@ describe('CostTracker', () => {
     expect(summary.totalCost).toBeCloseTo(3.43, 5);
     expect(summary.totalTokens).toEqual({
       input: 400_000,
-      output: 200_000
+      output: 200_000,
     });
 
     expect(summary.byFeature['chat_bot']).toEqual({
       cost: 1.33,
       inputTokens: 200_000,
-      outputTokens: 100_000
+      outputTokens: 100_000,
     });
 
     expect(summary.byFeature['summarizer']).toEqual({
-      cost: 2.10,
+      cost: 2.1,
       inputTokens: 200_000,
-      outputTokens: 100_000
+      outputTokens: 100_000,
     });
   });
 
@@ -107,15 +107,15 @@ describe('StreamingProvider', () => {
     const mockChunks = [
       {
         content: 'Streaming',
-        usage_metadata: { input_tokens: 120 }
+        usage_metadata: { input_tokens: 120 },
       },
       {
         content: ' is',
       },
       {
         content: ' fun!',
-        usage_metadata: { output_tokens: 45 }
-      }
+        usage_metadata: { output_tokens: 45 },
+      },
     ];
 
     const mockStream = {
@@ -123,13 +123,13 @@ describe('StreamingProvider', () => {
         for (const c of mockChunks) {
           yield c;
         }
-      }
+      },
     };
 
     const mockStreamFn = vi.fn().mockResolvedValue(mockStream);
     vi.mocked(ChatAnthropic).mockImplementation(() => {
       return {
-        stream: mockStreamFn
+        stream: mockStreamFn,
       } as any;
     });
 
@@ -140,27 +140,29 @@ describe('StreamingProvider', () => {
     await provider.streamComplete(
       {
         model: 'claude-haiku-4-5',
-        messages: [{ role: 'user', content: 'test stream' }]
+        messages: [{ role: 'user', content: 'test stream' }],
       },
       (chunk) => {
         chunks.push(chunk);
       },
       (usage) => {
         finalUsage = usage;
-      }
+      },
     );
 
     expect(chunks).toEqual(['Streaming', ' is', ' fun!']);
     expect(finalUsage).toEqual({
       inputTokens: 120,
-      outputTokens: 45
+      outputTokens: 45,
     });
 
-    expect(ChatAnthropic).toHaveBeenCalledWith(expect.objectContaining({
-      model: 'claude-haiku-4-5',
-      apiKey: apiKey,
-      streaming: true
-    }));
+    expect(ChatAnthropic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'claude-haiku-4-5',
+        apiKey: apiKey,
+        streaming: true,
+      }),
+    );
     expect(mockStreamFn).toHaveBeenCalled();
   });
 
@@ -168,7 +170,7 @@ describe('StreamingProvider', () => {
     const mockStreamFn = vi.fn().mockRejectedValue(new Error('Internal Server Error'));
     vi.mocked(ChatAnthropic).mockImplementation(() => {
       return {
-        stream: mockStreamFn
+        stream: mockStreamFn,
       } as any;
     });
 
@@ -177,11 +179,11 @@ describe('StreamingProvider', () => {
       provider.streamComplete(
         {
           model: 'claude-haiku-4-5',
-          messages: [{ role: 'user', content: 'test stream' }]
+          messages: [{ role: 'user', content: 'test stream' }],
         },
         () => {},
-        () => {}
-      )
+        () => {},
+      ),
     ).rejects.toThrowError('Internal Server Error');
   });
 });

@@ -1,5 +1,5 @@
 import { describe, it, expect, beforeEach } from 'vitest';
-import { PromptManager, createPromptManager, customerSupportSystemPrompt } from '../prompt-manager.js';
+import { PromptManager, createPromptManager, legalAiSystemPrompt } from '../prompt-manager.js';
 
 describe('PromptManager', () => {
   let manager: PromptManager;
@@ -12,14 +12,14 @@ describe('PromptManager', () => {
     manager.register({
       name: 'welcome',
       version: '1.0.0',
-      template: 'Hello {{name}}! Welcome to {{place}}.'
+      template: 'Hello {{name}}! Welcome to {{place}}.',
     });
 
     const result = manager.render('welcome', {
       variables: {
         name: 'Alice',
-        place: 'Wonderland'
-      }
+        place: 'Wonderland',
+      },
     });
 
     expect(result).toBe('Hello Alice! Welcome to Wonderland.');
@@ -29,14 +29,14 @@ describe('PromptManager', () => {
     manager.register({
       name: 'greet',
       version: '1.1.0',
-      template: 'Hello {{firstName}} {{lastName}}!'
+      template: 'Hello {{firstName}} {{lastName}}!',
     });
 
     // validate=false or undefined should not throw
     const partialResult = manager.render('greet', {
       variables: {
-        firstName: 'Bob'
-      }
+        firstName: 'Bob',
+      },
     });
     expect(partialResult).toBe('Hello Bob {{lastName}}!');
 
@@ -44,9 +44,9 @@ describe('PromptManager', () => {
     expect(() => {
       manager.render('greet', {
         variables: {
-          firstName: 'Bob'
+          firstName: 'Bob',
         },
-        validate: true
+        validate: true,
       });
     }).toThrowError(/Validation failed: Missing variables/);
   });
@@ -55,13 +55,13 @@ describe('PromptManager', () => {
     manager.register({
       name: 'promptA',
       version: '1.0.0',
-      template: 'Template A'
+      template: 'Template A',
     });
 
     manager.register({
       name: 'promptB',
       version: '2.0.0',
-      template: 'Template B'
+      template: 'Template B',
     });
 
     const list = manager.listPrompts();
@@ -70,24 +70,20 @@ describe('PromptManager', () => {
     expect(list).toContainEqual({ name: 'promptB', version: '2.0.0' });
   });
 
-  it('correctly handles customerSupportSystemPrompt template', () => {
+  it('correctly handles legalAiSystemPrompt template', () => {
     manager.register({
-      name: 'customer-support',
+      name: 'legal-ai',
       version: '1.0.0',
-      template: customerSupportSystemPrompt
+      template: legalAiSystemPrompt,
     });
 
-    const rendered = manager.render('customer-support', {
+    const rendered = manager.render('legal-ai', {
       variables: {
-        companyName: 'Acme Corp',
         sources: '- Source A: Refund policy is 30 days.\n- Source B: Shipping is free.',
-        supportEmail: 'support@acme.com'
       },
-      validate: true
+      validate: true,
     });
 
-    expect(rendered).toContain('Acme Corp');
     expect(rendered).toContain('Refund policy is 30 days');
-    expect(rendered).toContain('support@acme.com');
   });
 });

@@ -8,16 +8,13 @@ export async function extractStructured<T>(
   input: string,
   toolDefinition: ToolDefinition,
   apiKey: string,
-  model: string = 'claude-haiku-4-5'
+  model: string = 'claude-haiku-4-5',
 ): Promise<T> {
-  const lcTool = tool(
-    async (args: Record<string, unknown>) => JSON.stringify(args),
-    {
-      name: toolDefinition.name,
-      description: toolDefinition.description,
-      schema: z.object({}),
-    }
-  );
+  const lcTool = tool(async (args: Record<string, unknown>) => JSON.stringify(args), {
+    name: toolDefinition.name,
+    description: toolDefinition.description,
+    schema: z.object({}),
+  });
 
   const llm = new ChatAnthropic({ model, apiKey, maxTokens: 4096 }).bindTools([lcTool], {
     tool_choice: { type: 'tool', name: toolDefinition.name },

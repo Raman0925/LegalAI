@@ -6,6 +6,8 @@ type ChunkRow = {
   document_id: string;
   content: string;
   similarity: number;
+  chunk_index: number | null;
+  token_count: number | null;
   metadata: Record<string, unknown> | string;
 };
 
@@ -19,12 +21,19 @@ export interface VectorStore {
 export function createVectorStore(db: postgres.Sql): VectorStore {
   async function insert(params: InsertChunkParams): Promise<string> {
     const [result] = await db<{ id: string }[]>`
-      INSERT INTO document_chunks (document_id, content, embedding, metadata)
-      VALUES (${params.documentId}, ${params.content}, ${params.embedding}::vector, ${params.metadata ? JSON.stringify(params.metadata) : null})
+      INSERT INTO document_chunks (document_id, chunk_index, content, embedding, token_count, metadata)
+      VALUES (
+        ${params.documentId},
+        ${params.chunkIndex ?? 0},
+        ${params.content},
+        ${params.embedding}::vector,
+        ${params.tokenCount ?? null},
+        ${params.metadata ? db.json(params.metadata as any) : null}
+      )
       RETURNING id
     `;
     if (!result) {
-      throw new Error("Failed to insert chunk");
+      throw new Error('Failed to insert chunk');
     }
     return result.id;
   }
@@ -32,11 +41,13 @@ export function createVectorStore(db: postgres.Sql): VectorStore {
   async function insertBatch(chunks: InsertChunkParams[]): Promise<string[]> {
     if (chunks.length === 0) return [];
 
-    const rows = chunks.map(chunk => ({
+    const rows = chunks.map((chunk, idx) => ({
       document_id: chunk.documentId,
+      chunk_index: chunk.chunkIndex ?? idx,
       content: chunk.content,
       embedding: `[${chunk.embedding.join(',')}]`,
-      metadata: chunk.metadata ? JSON.stringify(chunk.metadata) : null
+      token_count: chunk.tokenCount ?? null,
+      metadata: chunk.metadata ? db.json(chunk.metadata as any) : null,
     }));
 
     const results = await db<{ id: string }[]>`
@@ -44,7 +55,7 @@ export function createVectorStore(db: postgres.Sql): VectorStore {
       RETURNING id
     `;
 
-    return results.map(r => r.id);
+    return results.map((r) => r.id);
   }
 
   async function search(params: SearchParams): Promise<SearchResult[]> {
@@ -53,9 +64,9 @@ export function createVectorStore(db: postgres.Sql): VectorStore {
     const filter = params.filter;
 
     const results = await db<ChunkRow[]>`
-      SELECT id, document_id, content, similarity, metadata
+      SELECT id, document_id, content, similarity, chunk_index, token_count, metadata
       FROM (
-        SELECT id, document_id AS "document_id", content, 1 - (embedding <=> ${params.embedding}::vector) AS similarity, metadata
+        SELECT id, document_id AS "document_id", content, 1 - (embedding <=> ${params.embedding}::vector) AS similarity, chunk_index, token_count, metadata
         FROM document_chunks
         WHERE 1 = 1
         ${filter ? db`AND metadata @> ${JSON.stringify(filter)}::jsonb` : db``}
@@ -65,12 +76,14 @@ export function createVectorStore(db: postgres.Sql): VectorStore {
       LIMIT ${limit}
     `;
 
-    return results.map(r => ({
+    return results.map((r) => ({
       id: r.id,
       documentId: r.document_id,
       content: r.content,
       similarity: Number(r.similarity),
-      metadata: typeof r.metadata === 'string' ? JSON.parse(r.metadata) : (r.metadata ?? {})
+      chunkIndex: r.chunk_index,
+      tokenCount: r.token_count,
+      metadata: typeof r.metadata === 'string' ? JSON.parse(r.metadata) : (r.metadata ?? {}),
     }));
   }
 
@@ -86,6 +99,6 @@ export function createVectorStore(db: postgres.Sql): VectorStore {
     insert,
     insertBatch,
     search,
-    deleteByDocumentId
+    deleteByDocumentId,
   };
 }

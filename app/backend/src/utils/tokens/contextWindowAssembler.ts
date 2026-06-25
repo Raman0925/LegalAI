@@ -7,13 +7,13 @@ export interface ContextWindowAssembler {
     systemPrompt: string,
     history: Message[],
     currentMessage: string,
-    documents: string[]
+    documents: string[],
   ): AssembledContext;
 }
 
 export function createContextWindowAssembler(
   budget: contextBudget,
-  tokenManager: TokenBudgetManager
+  tokenManager: TokenBudgetManager,
 ): ContextWindowAssembler {
   function getBudget(): contextBudget {
     return budget;
@@ -23,7 +23,7 @@ export function createContextWindowAssembler(
     systemPrompt: string,
     history: Message[],
     currentMessage: string,
-    documents: string[]
+    documents: string[],
   ): AssembledContext {
     const systemTokens = tokenManager.getTokenCount(systemPrompt);
     if (systemTokens > budget.systemPrompt) {
@@ -43,10 +43,11 @@ export function createContextWindowAssembler(
       systemPrompt: systemPrompt,
       messages: currentHistory.selected.concat({ role: 'user', content: currentMessage }),
       totalTokens: totalTokens,
+      fittedDocuments: currentDocuments.fitted,
       dropped: {
         historyMessagesDropped: history.length - currentHistory.selected.length,
         documentsSkipped: currentDocuments.skipped,
-      }
+      },
     };
   }
 
@@ -84,6 +85,6 @@ export function createContextWindowAssembler(
 
   return {
     getBudget,
-    assemble
+    assemble,
   };
-}   
+}

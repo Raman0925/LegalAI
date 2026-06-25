@@ -33,21 +33,21 @@ export interface ModelRouter {
 const MODELS = {
   haiku: {
     modelName: 'claude-haiku-4-5',
-    inputCostPerMillion: 0.80,
-    outputCostPerMillion: 4.00,
+    inputCostPerMillion: 0.8,
+    outputCostPerMillion: 4.0,
   },
   sonnet: {
     modelName: 'claude-sonnet-4-6',
-    inputCostPerMillion: 3.00,
-    outputCostPerMillion: 15.00,
+    inputCostPerMillion: 3.0,
+    outputCostPerMillion: 15.0,
   },
 };
 
 const registry: Record<string, Record<string, ModelConfig>> = {
-  chat:           { cheap: MODELS.haiku, premium: MODELS.sonnet },
+  chat: { cheap: MODELS.haiku, premium: MODELS.sonnet },
   classification: { cheap: MODELS.haiku, premium: MODELS.sonnet },
-  extraction:     { cheap: MODELS.haiku, premium: MODELS.sonnet },
-  filing:         { cheap: MODELS.haiku, premium: MODELS.sonnet },
+  extraction: { cheap: MODELS.haiku, premium: MODELS.sonnet },
+  filing: { cheap: MODELS.haiku, premium: MODELS.sonnet },
 };
 
 export function createModelRouter(): ModelRouter {

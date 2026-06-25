@@ -4,12 +4,16 @@ import { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } f
  * Health Controller Plugin
  * Defines health status check route for deployments.
  */
-export default async function healthController(fastify: FastifyInstance, options: FastifyPluginOptions) {
+export default async function healthController(
+  fastify: FastifyInstance,
+  options: FastifyPluginOptions,
+) {
   fastify.get(
     '/health',
     {
       schema: {
-        description: 'Production-ready health check endpoint to verify system and database connectivity.',
+        description:
+          'Production-ready health check endpoint to verify system and database connectivity.',
         tags: ['Health'],
         response: {
           200: {

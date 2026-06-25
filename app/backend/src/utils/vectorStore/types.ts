@@ -2,6 +2,8 @@ export interface InsertChunkParams {
   documentId: string;
   content: string;
   embedding: number[];
+  chunkIndex?: number;
+  tokenCount?: number;
   metadata?: Record<string, unknown>;
 }
 
@@ -10,6 +12,8 @@ export interface SearchResult {
   documentId: string;
   content: string;
   similarity: number;
+  chunkIndex: number | null;
+  tokenCount: number | null;
   metadata: Record<string, unknown>;
 }
 

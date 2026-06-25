@@ -12,7 +12,7 @@ describe('reciprocalRankFusion', () => {
     expect(fused[0].item.id).toBe('doc-2');
     expect(fused[1].item.id).toBe('doc-1');
     expect(fused[2].item.id).toBe('doc-3');
-    expect(fused[0].score).toBeCloseTo(1/62 + 1/61, 6);
+    expect(fused[0].score).toBeCloseTo(1 / 62 + 1 / 61, 6);
   });
 
   it('should return empty list if input lists are empty', () => {

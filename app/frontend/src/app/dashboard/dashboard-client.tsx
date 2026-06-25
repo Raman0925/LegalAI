@@ -1,14 +1,11 @@
 'use client';
 
 import * as React from 'react';
-import { SignOutButton } from '@/components/SignOutButton';
+import { Sidebar } from '@/components/layout/Sidebar';
 import { api } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
 import {
-  LayoutDashboard,
-  MessageSquare,
   FileText,
-  Settings,
   Cpu,
   Send,
   Loader2,
@@ -170,56 +167,39 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
     setIsReviewing(true);
     setReviewResult(null);
 
-    const prompt = `Perform a high-fidelity risk review of the following contract text. Identify high, medium, and low severity risks, list key obligations, and provide a short executive summary. Return JSON-like markdown sections. Here is the contract:\n\n${documentText}`;
+    // Instruct the model to return strict JSON so we can render structured UI.
+    const prompt = `You are a legal risk analyst. Review the following contract text and respond with ONLY a valid JSON object — no markdown, no explanation, no code fences.
+
+The JSON must follow this exact shape:
+{
+  "summary": "<2-3 sentence executive summary>",
+  "risks": [
+    { "severity": "high" | "medium" | "low", "clause": "<clause name>", "issue": "<risk description>", "advice": "<mitigation advice>" }
+  ],
+  "obligations": ["<obligation 1>", "<obligation 2>"]
+}
+
+Contract text:
+${documentText}`;
 
     try {
       const response = await api.chat.send(prompt, [], chatTier);
-      
-      // Parse response text to approximate a structured UI output if possible,
-      // or show the text nicely. For rich visuals, let's create a simulated mock structure
-      // based on the response if we can parse it, or display it cleanly.
-      // To give a perfect premium experience, let's present a parsed breakdown.
-      
-      // Let's create a beautiful structured visualization of the analysis
+
+      // Strip any accidental markdown fences the model may have added.
+      const clean = response.text.replace(/```json|```/g, '').trim();
+      const parsed = JSON.parse(clean);
+
       setReviewResult({
-        summary: response.text.substring(0, 300) + '...',
-        risks: [
-          {
-            severity: 'high',
-            clause: 'Indemnity / Liability Limit',
-            issue: 'Unlimited liability risk identified under section clauses.',
-            advice: 'Ensure a mutual cap of 1x or 2x annual contract value.'
-          },
-          {
-            severity: 'medium',
-            clause: 'Intellectual Property ownership rights',
-            issue: 'IP transfer language is broad and assigns background assets.',
-            advice: 'Exempt pre-existing IP and only transfer custom deliverables.'
-          },
-          {
-            severity: 'low',
-            clause: 'Governing Law',
-            issue: 'Jurisdiction is set to Delaware instead of local state.',
-            advice: 'Acceptable standard boilerplate, but review local dispute costs.'
-          }
-        ],
-        obligations: [
-          '30-day prior written notice required for termination.',
-          'Annual renewal happens automatically unless cancelled.',
-          'Confidentiality covenants extend 3 years post-termination.'
-        ]
+        summary: parsed.summary ?? '',
+        risks: Array.isArray(parsed.risks) ? parsed.risks : [],
+        obligations: Array.isArray(parsed.obligations) ? parsed.obligations : [],
       });
 
       if (response.usage) {
         setTokenStats((prev) => {
           const newIn = prev.input + response.usage.inputTokens;
           const newOut = prev.output + response.usage.outputTokens;
-          return {
-            input: newIn,
-            output: newOut,
-            total: newIn + newOut,
-            budget: prev.budget,
-          };
+          return { input: newIn, output: newOut, total: newIn + newOut, budget: prev.budget };
         });
       }
     } catch (err: any) {
@@ -235,91 +215,11 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
 
   return (
     <div className="min-h-screen bg-zinc-950 text-zinc-100 flex flex-col md:flex-row antialiased">
-      {/* LEFT SIDEBAR NAVIGATION */}
-      <aside className="w-full md:w-64 bg-zinc-900/60 border-b md:border-b-0 md:border-r border-zinc-800 flex flex-col justify-between backdrop-blur-xl shrink-0">
-        <div>
-          {/* Brand header */}
-          <div className="p-6 flex items-center gap-3 border-b border-zinc-800/60">
-            <div className="h-9 w-9 rounded-lg bg-gradient-to-br from-violet-600 to-indigo-600 flex items-center justify-center shadow-lg shadow-violet-500/10">
-              <span className="text-lg text-white" role="img" aria-label="gavel">⚖️</span>
-            </div>
-            <div>
-              <h2 className="font-extrabold text-lg tracking-tight bg-gradient-to-r from-white via-zinc-200 to-zinc-400 bg-clip-text text-transparent">
-                LegalAI
-              </h2>
-              <span className="text-[10px] text-violet-400 font-mono tracking-wider uppercase font-semibold">
-                Enterprise v1.0
-              </span>
-            </div>
-          </div>
-
-          {/* Navigation Links */}
-          <nav className="p-4 space-y-1">
-            <button
-              onClick={() => setActiveTab('overview')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                activeTab === 'overview'
-                  ? 'bg-zinc-800 text-white shadow-inner border border-zinc-700/50'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
-              }`}
-            >
-              <LayoutDashboard className="h-4.5 w-4.5" />
-              <span>Overview</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('chat')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                activeTab === 'chat'
-                  ? 'bg-zinc-800 text-white shadow-inner border border-zinc-700/50'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
-              }`}
-            >
-              <MessageSquare className="h-4.5 w-4.5" />
-              <span>AI Chat Assistant</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('reviewer')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                activeTab === 'reviewer'
-                  ? 'bg-zinc-800 text-white shadow-inner border border-zinc-700/50'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
-              }`}
-            >
-              <FileText className="h-4.5 w-4.5" />
-              <span>Document Reviewer</span>
-            </button>
-            <button
-              onClick={() => setActiveTab('profile')}
-              className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm font-medium transition-all duration-200 ${
-                activeTab === 'profile'
-                  ? 'bg-zinc-800 text-white shadow-inner border border-zinc-700/50'
-                  : 'text-zinc-400 hover:text-zinc-200 hover:bg-zinc-900'
-              }`}
-            >
-              <Settings className="h-4.5 w-4.5" />
-              <span>Settings</span>
-            </button>
-          </nav>
-        </div>
-
-        {/* User Footer Panel */}
-        <div className="p-4 border-t border-zinc-800/80 bg-zinc-900/40">
-          <div className="flex items-center gap-3 mb-4">
-            <div className="h-9 w-9 rounded-full bg-gradient-to-tr from-indigo-500 to-violet-500 flex items-center justify-center text-white font-bold text-sm shadow-inner uppercase">
-              {userProfile.fullName ? userProfile.fullName[0] : (userProfile.email ? userProfile.email[0] : 'U')}
-            </div>
-            <div className="overflow-hidden">
-              <p className="text-xs font-semibold text-zinc-200 truncate">
-                {userProfile.fullName || 'Authorized User'}
-              </p>
-              <p className="text-[10px] text-zinc-500 truncate">
-                {userProfile.email}
-              </p>
-            </div>
-          </div>
-          <SignOutButton />
-        </div>
-      </aside>
+      <Sidebar
+        active={activeTab}
+        userProfile={{ fullName: userProfile.fullName, email: userProfile.email }}
+        onSelectTab={setActiveTab}
+      />
 
       {/* MAIN CONTAINER */}
       <main className="flex-1 flex flex-col min-h-0 bg-zinc-950">

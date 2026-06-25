@@ -23,11 +23,11 @@ describe('ModelRouter', () => {
   it('getModel returns correct model for task and tier', () => {
     const cheapChatConfig = router.getModel('chat', 'cheap');
     expect(cheapChatConfig.modelName).toBe('claude-haiku-4-5');
-    expect(cheapChatConfig.inputCostPerMillion).toBe(0.80);
+    expect(cheapChatConfig.inputCostPerMillion).toBe(0.8);
 
     const premiumChatConfig = router.getModel('chat', 'premium');
     expect(premiumChatConfig.modelName).toBe('claude-sonnet-4-6');
-    expect(premiumChatConfig.inputCostPerMillion).toBe(3.00);
+    expect(premiumChatConfig.inputCostPerMillion).toBe(3.0);
 
     expect(() => router.getModel('unknown-task', 'cheap')).toThrowError(/Unknown task/);
     expect(() => router.getModel('chat', 'unknown-tier')).toThrowError(/Unknown tier/);
@@ -36,12 +36,12 @@ describe('ModelRouter', () => {
   it('estimateCost calculates correctly', () => {
     const testConfig: ModelConfig = {
       modelName: 'test-model',
-      inputCostPerMillion: 1.50,
-      outputCostPerMillion: 5.00
+      inputCostPerMillion: 1.5,
+      outputCostPerMillion: 5.0,
     };
 
     const cost1 = router.estimateCost(testConfig, 1_000_000, 1_000_000);
-    expect(cost1).toBeCloseTo(6.50, 5);
+    expect(cost1).toBeCloseTo(6.5, 5);
 
     const cost2 = router.estimateCost(testConfig, 500_000, 100_000);
     expect(cost2).toBeCloseTo(1.25, 5);
@@ -63,13 +63,13 @@ describe('AnthropicProvider', () => {
       content: 'Hello there, how can I help you today?',
       usage_metadata: {
         input_tokens: 150,
-        output_tokens: 45
-      }
+        output_tokens: 45,
+      },
     });
 
     vi.mocked(ChatAnthropic).mockImplementation(() => {
       return {
-        invoke: mockInvoke
+        invoke: mockInvoke,
       } as any;
     });
 
@@ -78,22 +78,24 @@ describe('AnthropicProvider', () => {
       model: 'claude-haiku-4-5',
       messages: [{ role: 'user', content: 'hi' }],
       temperature: 0.7,
-      systemPrompt: 'You are a helpful assistant.'
+      systemPrompt: 'You are a helpful assistant.',
     });
 
     expect(result).toEqual({
       text: 'Hello there, how can I help you today?',
       usage: {
         inputTokens: 150,
-        outputTokens: 45
-      }
+        outputTokens: 45,
+      },
     });
 
-    expect(ChatAnthropic).toHaveBeenCalledWith(expect.objectContaining({
-      model: 'claude-haiku-4-5',
-      apiKey: apiKey,
-      temperature: 0.7
-    }));
+    expect(ChatAnthropic).toHaveBeenCalledWith(
+      expect.objectContaining({
+        model: 'claude-haiku-4-5',
+        apiKey: apiKey,
+        temperature: 0.7,
+      }),
+    );
     expect(mockInvoke).toHaveBeenCalled();
   });
 });

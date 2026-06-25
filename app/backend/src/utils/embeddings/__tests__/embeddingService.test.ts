@@ -7,7 +7,10 @@ vi.mock('@langchain/openai', () => {
     OpenAIEmbeddings: vi.fn().mockImplementation(() => {
       return {
         embedQuery: vi.fn().mockResolvedValue([0.1, 0.2, 0.3]),
-        embedDocuments: vi.fn().mockResolvedValue([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]),
+        embedDocuments: vi.fn().mockResolvedValue([
+          [0.1, 0.2, 0.3],
+          [0.4, 0.5, 0.6],
+        ]),
       };
     }),
   };
@@ -43,7 +46,10 @@ describe('EmbeddingService', () => {
   });
 
   it('should call embedDocuments when calling embedBatch', async () => {
-    const mockEmbedDocuments = vi.fn().mockResolvedValue([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]);
+    const mockEmbedDocuments = vi.fn().mockResolvedValue([
+      [0.1, 0.2, 0.3],
+      [0.4, 0.5, 0.6],
+    ]);
     vi.mocked(OpenAIEmbeddings).mockImplementation(() => {
       return {
         embedDocuments: mockEmbedDocuments,
@@ -54,7 +60,10 @@ describe('EmbeddingService', () => {
     const result = await service.embedBatch(['first', 'second']);
 
     expect(mockEmbedDocuments).toHaveBeenCalledWith(['first', 'second']);
-    expect(result).toEqual([[0.1, 0.2, 0.3], [0.4, 0.5, 0.6]]);
+    expect(result).toEqual([
+      [0.1, 0.2, 0.3],
+      [0.4, 0.5, 0.6],
+    ]);
   });
 
   it('should correctly find the index of the candidate vector most similar to the query', () => {

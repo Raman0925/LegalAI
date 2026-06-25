@@ -1,79 +1,108 @@
 import postgres from 'postgres';
 import { HybridRetriever, createHybridRetriever } from '../../utils/vector/hybrid-retriever.js';
 import { VectorStore, createVectorStore } from '../../utils/vectorStore/vectorStore.js';
-import { EmbeddingService, createEmbeddingService } from '../../utils/embeddings/embeddingService.js';
+import {
+  EmbeddingService,
+  createEmbeddingService,
+} from '../../utils/embeddings/embeddingService.js';
 import { Reranker, createReranker } from '../../utils/vector/reranker.js';
-import { ContextWindowAssembler, createContextWindowAssembler } from '../../utils/tokens/contextWindowAssembler.js';
-import { TokenBudgetManager, createTokenBudgetManager } from '../../utils/tokens/tokenBudgetManager.js';
+import {
+  ContextWindowAssembler,
+  createContextWindowAssembler,
+} from '../../utils/tokens/contextWindowAssembler.js';
+import {
+  TokenBudgetManager,
+  createTokenBudgetManager,
+} from '../../utils/tokens/tokenBudgetManager.js';
 import { ModelRouter, createModelRouter } from '../../utils/ai/model-router.js';
 import { AnthropicProvider, createAnthropicProvider } from '../../utils/ai/anthropic-provider.js';
 import { StreamingProvider, createStreamingProvider } from '../../utils/ai/streaming-provider.js';
-import { Message, contextBudget } from '../../utils/tokens/types.js';
-import { customerSupportSystemPrompt } from '../../utils/prompts/prompt-manager.js';
-import { DEFAULT_CHAT_BUDGET, DEFAULT_COMPANY_NAME, DEFAULT_SUPPORT_EMAIL } from './chat.constant.js';
+import { Message, AssembledContext } from '../../utils/tokens/types.js';
+import { legalAiSystemPrompt } from '../../utils/prompts/prompt-manager.js';
+import { DEFAULT_CHAT_BUDGET } from './chat.constant.js';
 import { mapTierToModelRouterTier } from './chat.util.js';
+
+// Fail fast at startup — don't let a missing key surface as a 401 mid-query.
+if (!process.env.COHERE_API_KEY) {
+  throw new Error('COHERE_API_KEY environment variable is required but not set.');
+}
+if (!process.env.ANTHROPIC_API_KEY) {
+  throw new Error('ANTHROPIC_API_KEY environment variable is required but not set.');
+}
+if (!process.env.OPENAI_API_KEY) {
+  throw new Error('OPENAI_API_KEY environment variable is required but not set.');
+}
 
 // Global Singleton Initialization for exported domain functions
 const db = postgres(process.env.DATABASE_URL || '', {
-  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false }
+  ssl: process.env.DATABASE_URL?.includes('localhost') ? false : { rejectUnauthorized: false },
 });
 
 const vectorStore = createVectorStore(db);
 const embeddingService = createEmbeddingService('text-embedding-3-small');
-const reranker = createReranker(process.env.COHERE_API_KEY || 'dummy-cohere-key');
+const reranker = createReranker(process.env.COHERE_API_KEY);
 const retriever = createHybridRetriever(vectorStore, embeddingService, reranker, db);
 
 const tokenManager = createTokenBudgetManager(DEFAULT_CHAT_BUDGET);
 const assembler = createContextWindowAssembler(DEFAULT_CHAT_BUDGET, tokenManager);
 const modelRouter = createModelRouter();
-const provider = createAnthropicProvider(process.env.ANTHROPIC_API_KEY || 'dummy-anthropic-key');
-const streaming = createStreamingProvider(process.env.ANTHROPIC_API_KEY || 'dummy-anthropic-key');
+const provider = createAnthropicProvider(process.env.ANTHROPIC_API_KEY);
+const streaming = createStreamingProvider(process.env.ANTHROPIC_API_KEY);
+
+// ---------------------------------------------------------------------------
+// Shared context builder — single source of truth for retrieval + assembly.
+// Both sendMessage and streamMessage call this; only the final LLM call differs.
+// ---------------------------------------------------------------------------
+interface BuiltContext {
+  assembled: AssembledContext;
+  finalSystemPrompt: string;
+  modelName: string;
+}
+
+async function buildContext(
+  message: string,
+  history: Message[],
+  tier: 'fast' | 'balanced' | 'powerful',
+  userId?: string,
+): Promise<BuiltContext> {
+  // 1. Retrieve chunks most relevant to the query (vector + keyword + rerank),
+  //    scoped to the requesting user's documents.
+  const searchResults = await retriever.retrieve(message, { userId });
+  const documents = searchResults.map((r) => r.content);
+
+  // 2. Assemble context window — assembler owns token budget + document fitting.
+  //    assembled.fittedDocuments contains only the docs that actually fit.
+  const assembled = assembler.assemble(legalAiSystemPrompt, history, message, documents);
+
+  // 3. Inject fitted docs into the system prompt placeholder.
+  const sourcesText = assembled.fittedDocuments.join('\n\n---\n\n');
+  const finalSystemPrompt = legalAiSystemPrompt.replace('{{sources}}', sourcesText);
+
+  // 4. Resolve model from tier.
+  const routerTier = mapTierToModelRouterTier(tier);
+  const modelConfig = modelRouter.getModel('chat', routerTier);
+
+  return { assembled, finalSystemPrompt, modelName: modelConfig.modelName };
+}
 
 export async function sendMessage(
   message: string,
   history: Message[],
-  tier: 'fast' | 'balanced' | 'powerful' = 'balanced'
+  tier: 'fast' | 'balanced' | 'powerful' = 'balanced',
+  userId?: string,
 ): Promise<{ text: string; usage: { inputTokens: number; outputTokens: number } }> {
-  // 1. Retrieve documents matching the user query
-  const searchResults = await retriever.retrieve(message);
-  const documents = searchResults.map(r => r.content);
+  const { assembled, finalSystemPrompt, modelName } = await buildContext(
+    message,
+    history,
+    tier,
+    userId,
+  );
 
-  // 2. Perform budget token counts of retrieved documents to mimic assembler behavior
-  const budget = assembler.getBudget();
-  const fittedDocs: string[] = [];
-  let usedTokens = 0;
-  for (const doc of documents) {
-    const tokens = tokenManager.getTokenCount(doc);
-    if (usedTokens + tokens <= budget.retrievedDocuments) {
-      fittedDocs.push(doc);
-      usedTokens += tokens;
-    }
-  }
-
-  // 3. Render base system prompt
-  const baseSystemPrompt = customerSupportSystemPrompt
-    .replace('{{companyName}}', DEFAULT_COMPANY_NAME)
-    .replace('{{supportEmail}}', DEFAULT_SUPPORT_EMAIL);
-
-  // 4. Call ContextWindowAssembler to validate limits and calculate overall token counts
-  const assembled = assembler.assemble(baseSystemPrompt, history, message, documents);
-
-  // 5. Replace sources placeholder with fitted documents in the final system prompt
-  const sourcesText = fittedDocs.join('\n\n');
-  const finalSystemPrompt = baseSystemPrompt.replace('{{sources}}', sourcesText);
-
-  // 6. Get model configuration from router
-  const routerTier = mapTierToModelRouterTier(tier);
-  const modelConfig = modelRouter.getModel('chat', routerTier);
-
-  // 7. Execute provider call
-  const result = await provider.complete({
-    model: modelConfig.modelName,
+  return provider.complete({
+    model: modelName,
     messages: assembled.messages,
-    systemPrompt: finalSystemPrompt
+    systemPrompt: finalSystemPrompt,
   });
-
-  return result;
 }
 
 export async function streamMessage(
@@ -81,56 +110,28 @@ export async function streamMessage(
   history: Message[],
   onChunk: (text: string) => void,
   onDone: (usage: { inputTokens: number; outputTokens: number }) => void,
-  tier: 'fast' | 'balanced' | 'powerful' = 'balanced'
+  tier: 'fast' | 'balanced' | 'powerful' = 'balanced',
+  userId?: string,
 ): Promise<void> {
-  // 1. Retrieve documents matching the user query
-  const searchResults = await retriever.retrieve(message);
-  const documents = searchResults.map(r => r.content);
+  const { assembled, finalSystemPrompt, modelName } = await buildContext(
+    message,
+    history,
+    tier,
+    userId,
+  );
 
-  // 2. Perform budget token counts of retrieved documents to mimic assembler behavior
-  const budget = assembler.getBudget();
-  const fittedDocs: string[] = [];
-  let usedTokens = 0;
-  for (const doc of documents) {
-    const tokens = tokenManager.getTokenCount(doc);
-    if (usedTokens + tokens <= budget.retrievedDocuments) {
-      fittedDocs.push(doc);
-      usedTokens += tokens;
-    }
-  }
-
-  // 3. Render base system prompt
-  const baseSystemPrompt = customerSupportSystemPrompt
-    .replace('{{companyName}}', DEFAULT_COMPANY_NAME)
-    .replace('{{supportEmail}}', DEFAULT_SUPPORT_EMAIL);
-
-  // 4. Call ContextWindowAssembler to validate limits and calculate overall token counts
-  const assembled = assembler.assemble(baseSystemPrompt, history, message, documents);
-
-  // 5. Replace sources placeholder with fitted documents in the final system prompt
-  const sourcesText = fittedDocs.join('\n\n');
-  const finalSystemPrompt = baseSystemPrompt.replace('{{sources}}', sourcesText);
-
-  // 6. Get model configuration from router
-  const routerTier = mapTierToModelRouterTier(tier);
-  const modelConfig = modelRouter.getModel('chat', routerTier);
-
-  // 7. Execute streaming provider call
   await streaming.streamComplete(
-    {
-      model: modelConfig.modelName,
-      messages: assembled.messages,
-      systemPrompt: finalSystemPrompt
-    },
+    { model: modelName, messages: assembled.messages, systemPrompt: finalSystemPrompt },
     onChunk,
-    onDone
+    onDone,
   );
 }
 
 export async function* streamMessageIterable(
   message: string,
   history: Message[],
-  tier: 'fast' | 'balanced' | 'powerful' = 'balanced'
+  tier: 'fast' | 'balanced' | 'powerful' = 'balanced',
+  userId?: string,
 ): AsyncGenerator<string | { data: any; event: string }, void, unknown> {
   const queue: Array<string | { data: any; event: string } | null> = [];
   let resolveNext: (() => void) | null = null;
@@ -150,9 +151,10 @@ export async function* streamMessageIterable(
     (chunk) => push(chunk),
     (usage) => {
       push({ data: usage, event: 'done' });
-      push(null); // Terminate the generator loop
+      push(null);
     },
-    tier
+    tier,
+    userId,
   ).catch((err) => {
     push({ data: JSON.stringify({ error: err.message }), event: 'error' });
     push(null);

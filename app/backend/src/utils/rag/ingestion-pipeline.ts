@@ -5,18 +5,18 @@ import { VectorStore } from '../vectorStore/vectorStore.js';
 export interface IngestionPipeline {
   ingest(
     document: { id: string; content: string; metadata?: Record<string, unknown> },
-    options?: { reingest?: boolean }
+    options?: { reingest?: boolean },
   ): Promise<{ chunksCreated: number }>;
 }
 
 export function createIngestionPipeline(
   chunker: Chunker,
   embeddingService: EmbeddingService,
-  vectorStore: VectorStore
+  vectorStore: VectorStore,
 ): IngestionPipeline {
   async function ingest(
     document: { id: string; content: string; metadata?: Record<string, unknown> },
-    options?: { reingest?: boolean }
+    options?: { reingest?: boolean },
   ): Promise<{ chunksCreated: number }> {
     if (options?.reingest) {
       await vectorStore.deleteByDocumentId(document.id);
@@ -32,13 +32,15 @@ export function createIngestionPipeline(
         documentId: document.id,
         content: c.text,
         embedding: embeddings[idx],
+        chunkIndex: idx,
+        tokenCount: c.tokenCount,
         metadata: {
           ...(document.metadata ?? {}),
           startChar: c.startChar,
           endChar: c.endChar,
           tokenCount: c.tokenCount,
         },
-      }))
+      })),
     );
 
     return { chunksCreated: chunks.length };

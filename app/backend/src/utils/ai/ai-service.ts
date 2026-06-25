@@ -7,13 +7,13 @@ export interface AIService {
   complete(
     params: CompletionParams,
     metadata: { feature: string; task: string; tier: string },
-    options?: { maxRetries?: number; initialDelayMs?: number }
+    options?: { maxRetries?: number; initialDelayMs?: number },
   ): Promise<CompletionResult & { costMetrics: CostMetrics }>;
   stream(
     params: CompletionParams,
     metadata: { feature: string; task: string; tier: string },
     onChunk: (text: string) => void,
-    onDone: (usage: { inputTokens: number; outputTokens: number }) => void
+    onDone: (usage: { inputTokens: number; outputTokens: number }) => void,
   ): Promise<void>;
 }
 
@@ -21,7 +21,7 @@ export function createAIService(
   provider: ModelProvider,
   streaming: StreamingProvider,
   costTracker: CostTracker,
-  modelRouter: ModelRouter
+  modelRouter: ModelRouter,
 ): AIService {
   const trackedCosts: CostMetrics[] = [];
 
@@ -37,14 +37,15 @@ export function createAIService(
       msg.toLowerCase().includes('unauthorized') ||
       msg.toLowerCase().includes('invalid key') ||
       msg.includes('401')
-    ) return true;
+    )
+      return true;
     return false;
   }
 
   async function complete(
     params: CompletionParams,
     metadata: { feature: string; task: string; tier: string },
-    options: { maxRetries?: number; initialDelayMs?: number } = {}
+    options: { maxRetries?: number; initialDelayMs?: number } = {},
   ): Promise<CompletionResult & { costMetrics: CostMetrics }> {
     const maxRetries = options.maxRetries ?? 3;
     const initialDelayMs = options.initialDelayMs ?? 1000;
@@ -57,7 +58,7 @@ export function createAIService(
           metadata.feature,
           metadata.task,
           metadata.tier,
-          result.usage
+          result.usage,
         );
         trackedCosts.push(costMetrics);
         return { ...result, costMetrics };
@@ -74,15 +75,10 @@ export function createAIService(
     params: CompletionParams,
     metadata: { feature: string; task: string; tier: string },
     onChunk: (text: string) => void,
-    onDone: (usage: { inputTokens: number; outputTokens: number }) => void
+    onDone: (usage: { inputTokens: number; outputTokens: number }) => void,
   ): Promise<void> {
     await streaming.streamComplete(params, onChunk, (usage) => {
-      const costMetrics = costTracker.track(
-        metadata.feature,
-        metadata.task,
-        metadata.tier,
-        usage
-      );
+      const costMetrics = costTracker.track(metadata.feature, metadata.task, metadata.tier, usage);
       trackedCosts.push(costMetrics);
       onDone(usage);
     });
