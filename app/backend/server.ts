@@ -12,6 +12,7 @@ import matterController from '#domains/matter/matter.controller.js';
 import { researchController } from '#domains/research/research.controller.js';
 import { contractsController } from '#domains/contracts/contracts.controller.js';
 import { editorController } from '#domains/editor/editor.controller.js';
+import { billingController } from '#domains/billing/billing.controller.js';
 import fastifySSE from '@fastify/sse';
 import loggerConfig from '#config/loggerConfig.js';
 import swagger from '@fastify/swagger';
@@ -38,6 +39,15 @@ fastify.register(dbConnector);
 fastify.register(websocket);
 fastify.register(fastifySSE.default);
 fastify.register(multipart, { limits: { fileSize: MAX_UPLOAD_BYTES } });
+
+// Raw body needed for Razorpay webhook signature verification
+// global: false means it only attaches rawBody where config.rawBody = true
+await fastify.register(import('fastify-raw-body').then(m => m.default), {
+  field: 'rawBody',
+  global: false,
+  encoding: 'utf8',
+  runFirst: true,
+});
 fastify.register(swagger, swaggerConfig);
 fastify.register(swaggerUi, swaggerUiConfig);
 
@@ -54,6 +64,7 @@ fastify.register(matterController, { prefix: '/matters' });
 fastify.register(researchController, { prefix: '/api' });
 fastify.register(contractsController, { prefix: '/contracts' });
 fastify.register(editorController, { prefix: '/editor' });
+fastify.register(billingController, { prefix: '/billing' });
 
 // Register global error handler
 fastify.setErrorHandler(errorHandler);

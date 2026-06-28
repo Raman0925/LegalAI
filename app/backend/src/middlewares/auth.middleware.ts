@@ -4,7 +4,13 @@ import { FastifyRequest, FastifyReply, FastifyError } from 'fastify';
 export default async function authMiddleware(request: FastifyRequest, reply: FastifyReply) {
   const { url } = request;
 
-  if (url === '/health' || url.startsWith('/docs') || url.startsWith('/favicon.ico')) {
+  if (
+    url === '/health' ||
+    url.startsWith('/docs') ||
+    url.startsWith('/favicon.ico') ||
+    url === '/billing/webhook' ||
+    url === '/billing/plans'
+  ) {
     return;
   }
   const authHeader = request.headers.authorization;
