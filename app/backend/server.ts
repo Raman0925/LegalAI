@@ -9,6 +9,7 @@ import chatController from '#domains/chat/chat.controller.js';
 import healthController from '#domains/health/health.controller.js';
 import documentController from '#domains/document/document.controller.js';
 import matterController from '#domains/matter/matter.controller.js';
+import { researchController } from '#domains/research/research.controller.js';
 import fastifySSE from '@fastify/sse';
 import loggerConfig from '#config/loggerConfig.js';
 import swagger from '@fastify/swagger';
@@ -18,8 +19,12 @@ import cors from '@fastify/cors';
 import multipart from '@fastify/multipart';
 import { swaggerConfig, swaggerUiConfig } from '#config/swaggerConfig.js';
 import { MAX_UPLOAD_BYTES } from '#domains/document/document.constant.js';
+import { createSupabaseAdminClient } from '#utils/storage/supabaseClient.js';
 
 const fastify = Fastify({ logger: loggerConfig });
+
+// Decorate fastify with supabase client
+fastify.decorate('supabase', createSupabaseAdminClient());
 
 // Register plugins
 fastify.register(cors, {
@@ -44,6 +49,7 @@ fastify.register(userController, { prefix: '/auth' });
 fastify.register(chatController, { prefix: '/chat' });
 fastify.register(documentController, { prefix: '/documents' });
 fastify.register(matterController, { prefix: '/matters' });
+fastify.register(researchController, { prefix: '/api' });
 
 // Register global error handler
 fastify.setErrorHandler(errorHandler);
