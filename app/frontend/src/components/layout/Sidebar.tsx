@@ -10,10 +10,11 @@ import {
   FolderOpen,
   Briefcase,
   Search,
+  FileCheck,
 } from 'lucide-react';
 
 export type DashboardTab = 'overview' | 'chat' | 'reviewer' | 'profile';
-export type DashboardSection = DashboardTab | 'documents' | 'matters' | 'research';
+export type DashboardSection = DashboardTab | 'documents' | 'matters' | 'research' | 'contracts';
 
 interface SidebarProps {
   active: DashboardSection;
@@ -90,6 +91,10 @@ export function Sidebar({ active, userProfile, onSelectTab }: SidebarProps) {
           <Link href="/research" className={navClasses(active === 'research')}>
             <Search className="h-4.5 w-4.5" />
             <span>Research Sessions</span>
+          </Link>
+          <Link href="/contracts" className={navClasses(active === 'contracts')}>
+            <FileCheck className="h-4.5 w-4.5" />
+            <span>Contract Reviewer</span>
           </Link>
         </nav>
       </div>
