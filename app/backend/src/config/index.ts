@@ -11,6 +11,10 @@ export interface Config {
   openaiApiKey: string;
   cohereApiKey: string;
   anthropicApiKey: string;
+  razorpayKeyId: string;
+  razorpayKeySecret: string;
+  razorpayWebhookSecret: string;
+  resendApiKey: string;
 }
 
 export const config: Config = {
@@ -23,4 +27,8 @@ export const config: Config = {
   openaiApiKey: process.env.OPENAI_API_KEY || '',
   cohereApiKey: process.env.COHERE_API_KEY || '',
   anthropicApiKey: process.env.ANTHROPIC_API_KEY || '',
+  razorpayKeyId: process.env.RAZORPAY_KEY_ID || '',
+  razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || '',
+  razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
+  resendApiKey: process.env.RESEND_API_KEY || '',
 };
