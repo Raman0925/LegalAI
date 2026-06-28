@@ -1,5 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import authenticate from '#middlewares/auth.middleware.js';
+import { planLimit } from '#middlewares/plan-limits.middleware.js';
+import { trackAfterResponse } from '#middlewares/usage-tracker.middleware.js';
 import * as repo from './editor.repository.js';
 import {
   autoSaveDocument,
@@ -48,12 +50,12 @@ export async function editorController(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId, id: userId } = request.user;
     const body = CreateDocumentSchema.parse(request.body);
 
     const doc = await repo.createDocument(app.supabase, {
-      firmId: user.firmId || '00000000-0000-0000-0000-000000000000',
-      userId: user.id,
+      firmId,
+      userId,
       matterId: body.matterId,
       title: body.title ?? 'Untitled Document',
       content: body.templateContent ?? { type: 'doc', content: [] },
@@ -82,13 +84,9 @@ export async function editorController(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { matterId } = request.query as { matterId?: string };
-    const documents = await repo.getDocumentsByFirm(
-      app.supabase,
-      user.firmId || '00000000-0000-0000-0000-000000000000',
-      matterId
-    );
+    const documents = await repo.getDocumentsByFirm(app.supabase, firmId, matterId);
     return reply.send({ documents });
   });
 
@@ -115,45 +113,35 @@ export async function editorController(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
-    const doc = await repo.getDocumentById(
-      app.supabase,
-      documentId,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const doc = await repo.getDocumentById(app.supabase, documentId, firmId);
     if (!doc) return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
     return reply.send({ document: doc });
   });
 
-  // PUT /editor/documents/:documentId — auto-save document
+  // PUT /editor/documents/:documentId — auto-save (debounced from frontend)
   app.put('/documents/:documentId', {
     preHandler: [authenticate],
     schema: {
       ...updateDocumentJsonSchema,
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            saved: { type: 'boolean' },
-          },
-          required: ['saved'],
-        },
+        200: { type: 'object', properties: { saved: { type: 'boolean' } }, required: ['saved'] },
         '4xx': errorResponseSchema,
         '5xx': errorResponseSchema,
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId, id: userId } = request.user;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
     const body = UpdateDocumentSchema.parse(request.body);
     const { saveCount = 0 } = request.query as { saveCount?: number };
 
     await autoSaveDocument(app.supabase, {
       documentId,
-      firmId: user.firmId || '00000000-0000-0000-0000-000000000000',
-      userId: user.id,
-      content: body.content as any,
+      firmId,
+      userId,
+      content: body.content as never,
       wordCount: body.wordCount,
       title: body.title,
       saveCount: Number(saveCount),
@@ -189,23 +177,18 @@ export async function editorController(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId, id: userId } = request.user;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
     const body = SaveVersionSchema.parse(request.body);
 
-    // Verify ownership
-    const doc = await repo.getDocumentById(
-      app.supabase,
-      documentId,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const doc = await repo.getDocumentById(app.supabase, documentId, firmId);
     if (!doc) return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
 
     const version = await repo.saveVersion(app.supabase, {
       documentId,
-      firmId: user.firmId || '00000000-0000-0000-0000-000000000000',
-      userId: user.id,
-      content: body.content as any,
+      firmId,
+      userId,
+      content: body.content as never,
       wordCount: body.wordCount,
       label: body.label,
     });
@@ -213,73 +196,51 @@ export async function editorController(app: FastifyInstance) {
     return reply.status(201).send({ version });
   });
 
-  // GET /editor/documents/:documentId/versions — get all version listings
+  // GET /editor/documents/:documentId/versions
   app.get('/documents/:documentId/versions', {
     preHandler: [authenticate],
     schema: {
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            versions: {
-              type: 'array',
-              items: documentVersionSchema,
-            },
-          },
-          required: ['versions'],
-        },
+        200: { type: 'object', properties: { versions: { type: 'array', items: documentVersionSchema } }, required: ['versions'] },
         404: errorResponseSchema,
         '4xx': errorResponseSchema,
         '5xx': errorResponseSchema,
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
     try {
-      const versions = await repo.getVersionsByDocument(
-        app.supabase,
-        documentId,
-        user.firmId || '00000000-0000-0000-0000-000000000000'
-      );
+      const versions = await repo.getVersionsByDocument(app.supabase, documentId, firmId);
       return reply.send({ versions });
     } catch {
       return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
     }
   });
 
-  // GET /editor/documents/:documentId/versions/:versionId — fetch version content to restore
+  // GET /editor/documents/:documentId/versions/:versionId
   app.get('/documents/:documentId/versions/:versionId', {
     preHandler: [authenticate],
     schema: {
       response: {
-        200: {
-          type: 'object',
-          properties: {
-            version: documentVersionSchema,
-          },
-          required: ['version'],
-        },
+        200: { type: 'object', properties: { version: documentVersionSchema }, required: ['version'] },
         404: errorResponseSchema,
         '4xx': errorResponseSchema,
         '5xx': errorResponseSchema,
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { versionId } = request.params as { versionId: string };
-    const version = await repo.getVersionById(
-      app.supabase,
-      versionId,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const version = await repo.getVersionById(app.supabase, versionId, firmId);
     if (!version) return reply.status(404).send({ error: 'Version not found', message: 'Version not found' });
     return reply.send({ version });
   });
 
-  // POST /editor/documents/:documentId/suggest — AI inline suggestion stream (SSE)
+  // POST /editor/documents/:documentId/suggest — AI suggestion (SSE), metered
   app.post('/documents/:documentId/suggest', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, planLimit('ai_calls')],
+    onResponse: [trackAfterResponse('ai_calls')],
     schema: {
       ...aiSuggestJsonSchema,
       response: {
@@ -293,15 +254,11 @@ export async function editorController(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
     const body = AiSuggestSchema.parse(request.body);
 
-    const doc = await repo.getDocumentById(
-      app.supabase,
-      documentId,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const doc = await repo.getDocumentById(app.supabase, documentId, firmId);
     if (!doc) return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
 
     reply.raw.writeHead(200, {
@@ -331,9 +288,10 @@ export async function editorController(app: FastifyInstance) {
     }
   });
 
-  // POST /editor/documents/:documentId/rewrite — AI selection rewrite stream (SSE)
+  // POST /editor/documents/:documentId/rewrite — AI rewrite (SSE), metered
   app.post('/documents/:documentId/rewrite', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, planLimit('ai_calls')],
+    onResponse: [trackAfterResponse('ai_calls')],
     schema: {
       body: {
         type: 'object',
@@ -355,15 +313,11 @@ export async function editorController(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
     const body = AiRewriteSchema.parse(request.body);
 
-    const doc = await repo.getDocumentById(
-      app.supabase,
-      documentId,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const doc = await repo.getDocumentById(app.supabase, documentId, firmId);
     if (!doc) return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
 
     reply.raw.writeHead(200, {
@@ -417,16 +371,13 @@ export async function editorController(app: FastifyInstance) {
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
     const body = ExportSchema.parse(request.body);
 
     try {
       const { buffer, filename, mimeType } = await exportDocumentById(
-        app.supabase,
-        documentId,
-        user.firmId || '00000000-0000-0000-0000-000000000000',
-        body.format
+        app.supabase, documentId, firmId, body.format
       );
 
       return reply

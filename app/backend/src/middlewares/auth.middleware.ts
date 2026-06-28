@@ -1,20 +1,26 @@
 import jwt, { JwtPayload } from 'jsonwebtoken';
 import { FastifyRequest, FastifyReply, FastifyError } from 'fastify';
 
+// Routes that skip authentication entirely
+const PUBLIC_ROUTES = new Set([
+  '/health',
+  '/billing/webhook',
+  '/billing/plans',
+]);
+
+const PUBLIC_PREFIXES = ['/docs', '/favicon.ico'];
+
 export default async function authMiddleware(request: FastifyRequest, reply: FastifyReply) {
   const { url } = request;
 
-  if (
-    url === '/health' ||
-    url.startsWith('/docs') ||
-    url.startsWith('/favicon.ico') ||
-    url === '/billing/webhook' ||
-    url === '/billing/plans'
-  ) {
+  // ── Skip auth for public routes ───────────────────────────────────────────
+  if (PUBLIC_ROUTES.has(url) || PUBLIC_PREFIXES.some(p => url.startsWith(p))) {
     return;
   }
+
+  // ── Validate Authorization header ─────────────────────────────────────────
   const authHeader = request.headers.authorization;
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
+  if (!authHeader?.startsWith('Bearer ')) {
     const err = new Error('Unauthorized: Missing or invalid token format') as FastifyError;
     err.statusCode = 401;
     throw err;
@@ -22,68 +28,81 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
 
   const token = authHeader.split(' ')[1];
 
+  const secret = process.env.JWT_SECRET;
+  if (!secret) {
+    const err = new Error('Internal Server Error: JWT secret is not configured') as FastifyError;
+    err.statusCode = 500;
+    throw err;
+  }
+
+  // ── Verify JWT ─────────────────────────────────────────────────────────────
+  let decoded: JwtPayload;
   try {
-    const secret = process.env.JWT_SECRET;
-    if (!secret) {
-      const err = new Error('Internal Server Error: JWT secret is not configured') as FastifyError;
-      err.statusCode = 500;
-      throw err;
-    }
+    decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as JwtPayload;
+  } catch {
+    const err = new Error('Unauthorized: Invalid or expired access token') as FastifyError;
+    err.statusCode = 401;
+    throw err;
+  }
 
-    let decoded: JwtPayload;
-    try {
-      decoded = jwt.verify(token, secret, {
-        algorithms: ['HS256'],
-      }) as JwtPayload;
-    } catch (jwtErr) {
-      const err = new Error('Unauthorized: Invalid or expired access token') as FastifyError;
-      err.statusCode = 401;
-      throw err;
-    }
+  if (!decoded?.sub) {
+    const err = new Error('Unauthorized: Invalid token payload') as FastifyError;
+    err.statusCode = 401;
+    throw err;
+  }
 
-    if (!decoded || !decoded.sub) {
-      const err = new Error('Unauthorized: Invalid or expired access token') as FastifyError;
-      err.statusCode = 401;
-      throw err;
-    }
-
-    const user = {
-      id: decoded.sub,
-      email: decoded.email,
-      user_metadata: decoded.user_metadata,
-    };
-
-    // 4. Query the public.profiles database table using the pg connection pool
+  // ── Look up profile + firmId from DB ──────────────────────────────────────
+  // We fetch firmId here so every downstream handler always has it.
+  // The profiles table must have a firm_id column set during firm onboarding.
+  try {
     const result = await request.server.pg.query(
-      'SELECT id, email, full_name, avatar_url, created_at, updated_at FROM public.profiles WHERE id = $1',
-      [user.id],
+      `SELECT
+         id, email, full_name, avatar_url, firm_id,
+         created_at, updated_at
+       FROM public.profiles
+       WHERE id = $1`,
+      [decoded.sub],
     );
 
     const profile = result.rows[0];
 
     if (!profile) {
-      // Resilient Fallback: If DB sync trigger hasn't finished, construct profile from JWT metadata
+      // Graceful fallback: profile sync trigger may not have run yet
+      // Use JWT metadata but log a warning — firmId will be empty string
+      request.log.warn(
+        { userId: decoded.sub },
+        'Profile not found in DB — using JWT metadata fallback. firm_id will be empty.'
+      );
       request.user = {
-        id: user.id,
-        email: user.email || '',
-        full_name: user.user_metadata?.full_name || user.user_metadata?.name || null,
-        avatar_url: user.user_metadata?.avatar_url || null,
+        id: decoded.sub,
+        email: decoded['email'] as string || '',
+        full_name: (decoded['user_metadata'] as Record<string, string>)?.full_name || null,
+        avatar_url: (decoded['user_metadata'] as Record<string, string>)?.avatar_url || null,
+        firmId: '',           // empty — not a valid UUID, will fail firm-scoped queries safely
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
-      request.log.warn(
-        `Profile for user ${user.id} not found in public.profiles. Used fallback metadata.`,
-      );
     } else {
-      // Attach the DB profile to the request
-      request.user = profile;
+      request.user = {
+        id: profile.id,
+        email: profile.email,
+        full_name: profile.full_name,
+        avatar_url: profile.avatar_url,
+        firmId: profile.firm_id ?? '',   // firm_id from profiles table
+        created_at: profile.created_at,
+        updated_at: profile.updated_at,
+      };
     }
+
+    request.log.debug(
+      { userId: request.user.id, firmId: request.user.firmId },
+      'Auth middleware: user resolved'
+    );
+
   } catch (err) {
-    // Pass errors down to Fastify's error handler hook
-    const error = err as FastifyError;
-    if (!error.statusCode) {
-      error.statusCode = 401;
-    }
+    request.log.error(err, 'Auth middleware: DB lookup failed');
+    const error = new Error('Internal Server Error') as FastifyError;
+    error.statusCode = 500;
     throw error;
   }
 }

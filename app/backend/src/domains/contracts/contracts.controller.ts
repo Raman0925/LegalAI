@@ -1,5 +1,7 @@
 import { FastifyInstance } from 'fastify';
 import authenticate from '#middlewares/auth.middleware.js';
+import { planLimit } from '#middlewares/plan-limits.middleware.js';
+import { trackAfterResponse } from '#middlewares/usage-tracker.middleware.js';
 import * as repo from './contracts.repository.js';
 import {
   uploadContract,
@@ -24,7 +26,7 @@ export async function contractsController(app: FastifyInstance) {
   app.post('/upload', {
     preHandler: [authenticate],
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId, id: userId } = request.user;
     const data = await request.file();
 
     if (!data) return reply.status(400).send({ error: 'No file uploaded' });
@@ -37,8 +39,8 @@ export async function contractsController(app: FastifyInstance) {
 
     try {
       const contract = await uploadContract(app.supabase, {
-        firmId: user.firmId || '00000000-0000-0000-0000-000000000000',
-        userId: user.id,
+        firmId,
+        userId,
         matterId,
         filename: data.filename,
         buffer,
@@ -57,11 +59,8 @@ export async function contractsController(app: FastifyInstance) {
   app.get('/', {
     preHandler: [authenticate],
   }, async (request, reply) => {
-    const user = request.user!;
-    const contracts = await repo.getContractsByFirm(
-      app.supabase,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const { firmId } = request.user;
+    const contracts = await repo.getContractsByFirm(app.supabase, firmId);
     return reply.send({ contracts });
   });
 
@@ -70,14 +69,10 @@ export async function contractsController(app: FastifyInstance) {
     preHandler: [authenticate],
     schema: contractIdParamJsonSchema,
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { contractId } = ContractIdParamSchema.parse(request.params);
 
-    const contract = await getContractWithSignedUrl(
-      app.supabase,
-      contractId,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const contract = await getContractWithSignedUrl(app.supabase, contractId, firmId);
     if (!contract) return reply.status(404).send({ error: 'Contract not found' });
 
     return reply.send({ contract });
@@ -88,15 +83,11 @@ export async function contractsController(app: FastifyInstance) {
     preHandler: [authenticate],
     schema: contractIdParamJsonSchema,
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { contractId } = ContractIdParamSchema.parse(request.params);
 
     try {
-      const annotations = await repo.getAnnotationsByContract(
-        app.supabase,
-        contractId,
-        user.firmId || '00000000-0000-0000-0000-000000000000'
-      );
+      const annotations = await repo.getAnnotationsByContract(app.supabase, contractId, firmId);
       return reply.send({ annotations });
     } catch {
       return reply.status(404).send({ error: 'Contract not found' });
@@ -104,11 +95,13 @@ export async function contractsController(app: FastifyInstance) {
   });
 
   // POST /contracts/:contractId/analyze — SSE analysis stream
+  // planLimit enforced before analysis starts — 429 if daily AI calls exceeded
   app.post('/:contractId/analyze', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, planLimit('ai_calls')],
+    onResponse: [trackAfterResponse('ai_calls')],
     schema: contractIdParamJsonSchema,
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { contractId } = ContractIdParamSchema.parse(request.params);
 
     reply.raw.writeHead(200, {
@@ -122,7 +115,7 @@ export async function contractsController(app: FastifyInstance) {
       const stream = streamContractAnalysis(
         app.supabase,
         contractId,
-        user.firmId || '00000000-0000-0000-0000-000000000000'
+        firmId
       );
       for await (const chunk of stream) {
         reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
@@ -137,31 +130,23 @@ export async function contractsController(app: FastifyInstance) {
     }
   });
 
-  // POST /contracts/:contractId/ask — clause-level follow-up Q&A (SSE)
+  // POST /contracts/:contractId/ask — clause Q&A (SSE), metered
   app.post('/:contractId/ask', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, planLimit('ai_calls')],
+    onResponse: [trackAfterResponse('ai_calls')],
     schema: clauseQuestionJsonSchema,
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { contractId } = ContractIdParamSchema.parse(request.params);
     const body = ClauseQuestionSchema.parse(request.body);
 
-    const contract = await repo.getContractById(
-      app.supabase,
-      contractId,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const contract = await repo.getContractById(app.supabase, contractId, firmId);
     if (!contract) return reply.status(404).send({ error: 'Contract not found' });
     if (contract.status !== 'ready') {
       return reply.status(400).send({ error: 'Contract analysis not complete' });
     }
 
-    // Fetch relevant pages as context
-    const pages = await repo.getContractPages(
-      app.supabase,
-      contractId,
-      user.firmId || '00000000-0000-0000-0000-000000000000'
-    );
+    const pages = await repo.getContractPages(app.supabase, contractId, firmId);
     const contextPages = body.pageNumber
       ? pages.filter(p => Math.abs(p.pageNumber - body.pageNumber!) <= 2)
       : pages.slice(0, 10);
@@ -220,7 +205,7 @@ Contract context:\n${context}`;
     }
   });
 
-  // GET /contracts/:contractId/export — export contract review report (PDF/DOCX)
+  // GET /contracts/:contractId/export
   app.get('/:contractId/export', {
     preHandler: [authenticate],
     schema: {
@@ -239,7 +224,7 @@ Contract context:\n${context}`;
       },
     },
   }, async (request, reply) => {
-    const user = request.user!;
+    const { firmId } = request.user;
     const { contractId } = ContractIdParamSchema.parse(request.params);
     const query = z.object({
       format: z.enum(['pdf', 'docx']).default('pdf'),
@@ -249,7 +234,7 @@ Contract context:\n${context}`;
       const { buffer, mimeType } = await exportContractReviewReport(
         app.supabase,
         contractId,
-        user.firmId || '00000000-0000-0000-0000-000000000000',
+        firmId,
         query.format
       );
 
