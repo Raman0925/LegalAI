@@ -10,6 +10,7 @@ import healthController from '#domains/health/health.controller.js';
 import documentController from '#domains/document/document.controller.js';
 import matterController from '#domains/matter/matter.controller.js';
 import { researchController } from '#domains/research/research.controller.js';
+import { contractsController } from '#domains/contracts/contracts.controller.js';
 import fastifySSE from '@fastify/sse';
 import loggerConfig from '#config/loggerConfig.js';
 import swagger from '@fastify/swagger';
@@ -50,6 +51,7 @@ fastify.register(chatController, { prefix: '/chat' });
 fastify.register(documentController, { prefix: '/documents' });
 fastify.register(matterController, { prefix: '/matters' });
 fastify.register(researchController, { prefix: '/api' });
+fastify.register(contractsController, { prefix: '/contracts' });
 
 // Register global error handler
 fastify.setErrorHandler(errorHandler);
