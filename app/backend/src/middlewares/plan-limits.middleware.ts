@@ -1,5 +1,4 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
-import { SupabaseClient } from '@supabase/supabase-js';
 import * as billingRepo from '#domains/billing/billing.repository.js';
 import { checkLimit, isSubscriptionActive } from '#domains/billing/billing.limits.js';
 import { UsageMetric } from '#domains/billing/billing.types.js';
@@ -7,22 +6,14 @@ import { UsageMetric } from '#domains/billing/billing.types.js';
 /**
  * planLimit — Fastify preHandler middleware factory
  *
- * Use this to protect any route that consumes a metered resource.
- * It runs BEFORE the route handler, so limits are enforced before
- * any AI call or DB write happens.
+ * Enforces subscription plan limits BEFORE any AI call or metered action runs.
+ * Returns 402 for missing/inactive subscription, 429 for exceeded limits.
  *
- * Usage in a route:
- *   app.post('/chat', {
+ * Usage:
+ *   app.post('/chat/stream', {
  *     preHandler: [authenticate, planLimit('ai_calls')],
+ *     onResponse:  [trackAfterResponse('ai_calls')],
  *   }, handler)
- *
- * What it does:
- *   1. Looks up the firm's active subscription from DB
- *   2. Checks if subscription is active (not cancelled, halted, expired trial)
- *   3. Gets current usage for the requested metric
- *   4. Checks usage against plan limits
- *   5. Returns 402 if no subscription, 429 if limit exceeded
- *   6. Attaches subscription to request for downstream use if allowed
  */
 export function planLimit(metric: UsageMetric) {
   return async function checkPlanLimit(
@@ -30,16 +21,21 @@ export function planLimit(metric: UsageMetric) {
     reply: FastifyReply
   ): Promise<void> {
 
-    const user = request.user;
-    if (!user) {
-      reply.status(401).send({ error: 'Unauthorized' });
+    const { user } = request;
+    const { firmId } = user;
+
+    // Guard: firmId must be a real UUID — empty string means profile lookup failed
+    if (!firmId) {
+      reply.status(402).send({
+        error: 'Firm not configured. Please complete your account setup.',
+        setupUrl: '/onboarding',
+      });
       return;
     }
 
-    const firmId = user.firmId ?? '00000000-0000-0000-0000-000000000000';
-    const supabase = request.server.supabase as SupabaseClient;
+    const { supabase } = request.server;
 
-    // ── Step 1: Get firm's subscription ───────────────────────────────────────
+    // ── 1. Fetch subscription ────────────────────────────────────────────────
     const subscription = await billingRepo.getSubscriptionByFirm(supabase, firmId);
 
     if (!subscription) {
@@ -50,29 +46,30 @@ export function planLimit(metric: UsageMetric) {
       return;
     }
 
-    // ── Step 2: Check subscription is in a usable state ───────────────────────
-    // Active and valid trials are allowed. Halted, cancelled, past_due are blocked.
+    // ── 2. Check subscription status is usable ───────────────────────────────
     if (!isSubscriptionActive(subscription.status, subscription.trialEndsAt)) {
       reply.status(402).send({
-        error: `Your subscription is ${subscription.status}. Please update your billing to continue.`,
+        error: `Your subscription is ${subscription.status}. Please update your billing.`,
         status: subscription.status,
         billingUrl: '/billing',
       });
       return;
     }
 
-    // ── Step 3: Get current usage for this metric ──────────────────────────────
-    // ai_calls resets daily — check today's count only
-    // documents_created is a lifetime total — check all-time count
+    // ── 3. Get current usage for this metric ─────────────────────────────────
     const today = new Date().toISOString().slice(0, 10);
     const currentUsage = metric === 'ai_calls'
       ? await billingRepo.getDailyUsage(supabase, firmId, metric, today)
       : await getTotalUsageForFirm(supabase, firmId, metric);
 
-    // ── Step 4: Check against plan limits ─────────────────────────────────────
+    // ── 4. Check against plan limits ─────────────────────────────────────────
     const limitCheck = checkLimit(subscription.plan, metric, currentUsage);
 
     if (!limitCheck.allowed) {
+      request.log.warn(
+        { firmId, metric, current: limitCheck.current, limit: limitCheck.limit },
+        'Plan limit exceeded'
+      );
       reply.status(429).send({
         error: limitCheck.reason,
         current: limitCheck.current,
@@ -82,16 +79,15 @@ export function planLimit(metric: UsageMetric) {
       return;
     }
 
-    // ── Step 5: Attach subscription for downstream handlers ───────────────────
-    // Route handlers can read request.subscription without another DB call
-    (request as FastifyRequest & { subscription: typeof subscription }).subscription = subscription;
+    // ── 5. Attach subscription for downstream use ────────────────────────────
+    request.subscription = subscription;
   };
 }
 
-// ─── Helper: total usage across all dates for non-daily metrics ──────────────
+// ─── Helper ──────────────────────────────────────────────────────────────────
 
 async function getTotalUsageForFirm(
-  supabase: SupabaseClient,
+  supabase: ReturnType<typeof import('#utils/storage/supabaseClient.js').createSupabaseAdminClient>,
   firmId: string,
   metric: UsageMetric
 ): Promise<number> {
