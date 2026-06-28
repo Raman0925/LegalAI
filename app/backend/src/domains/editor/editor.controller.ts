@@ -17,6 +17,9 @@ import {
   DocumentIdParamSchema,
   updateDocumentJsonSchema,
   aiSuggestJsonSchema,
+  errorResponseSchema,
+  legalDocumentSchema,
+  documentVersionSchema,
 } from './editor.schema.js';
 
 export async function editorController(app: FastifyInstance) {
@@ -31,6 +34,17 @@ export async function editorController(app: FastifyInstance) {
           title: { type: 'string' },
           matterId: { type: 'string', format: 'uuid' },
         },
+      },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            document: legalDocumentSchema,
+          },
+          required: ['document'],
+        },
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
       },
     },
   }, async (request, reply) => {
@@ -51,6 +65,22 @@ export async function editorController(app: FastifyInstance) {
   // GET /editor/documents — list all documents for firm
   app.get('/documents', {
     preHandler: [authenticate],
+    schema: {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            documents: {
+              type: 'array',
+              items: legalDocumentSchema,
+            },
+          },
+          required: ['documents'],
+        },
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
+      },
+    },
   }, async (request, reply) => {
     const user = request.user!;
     const { matterId } = request.query as { matterId?: string };
@@ -71,6 +101,18 @@ export async function editorController(app: FastifyInstance) {
         required: ['documentId'],
         properties: { documentId: { type: 'string', format: 'uuid' } },
       },
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            document: legalDocumentSchema,
+          },
+          required: ['document'],
+        },
+        404: errorResponseSchema,
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
+      },
     },
   }, async (request, reply) => {
     const user = request.user!;
@@ -80,14 +122,27 @@ export async function editorController(app: FastifyInstance) {
       documentId,
       user.firmId || '00000000-0000-0000-0000-000000000000'
     );
-    if (!doc) return reply.status(404).send({ error: 'Document not found' });
+    if (!doc) return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
     return reply.send({ document: doc });
   });
 
   // PUT /editor/documents/:documentId — auto-save document
   app.put('/documents/:documentId', {
     preHandler: [authenticate],
-    schema: updateDocumentJsonSchema,
+    schema: {
+      ...updateDocumentJsonSchema,
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            saved: { type: 'boolean' },
+          },
+          required: ['saved'],
+        },
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
+      },
+    },
   }, async (request, reply) => {
     const user = request.user!;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
@@ -120,6 +175,18 @@ export async function editorController(app: FastifyInstance) {
           label: { type: 'string', maxLength: 200 },
         },
       },
+      response: {
+        201: {
+          type: 'object',
+          properties: {
+            version: documentVersionSchema,
+          },
+          required: ['version'],
+        },
+        404: errorResponseSchema,
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
+      },
     },
   }, async (request, reply) => {
     const user = request.user!;
@@ -132,7 +199,7 @@ export async function editorController(app: FastifyInstance) {
       documentId,
       user.firmId || '00000000-0000-0000-0000-000000000000'
     );
-    if (!doc) return reply.status(404).send({ error: 'Document not found' });
+    if (!doc) return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
 
     const version = await repo.saveVersion(app.supabase, {
       documentId,
@@ -149,6 +216,23 @@ export async function editorController(app: FastifyInstance) {
   // GET /editor/documents/:documentId/versions — get all version listings
   app.get('/documents/:documentId/versions', {
     preHandler: [authenticate],
+    schema: {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            versions: {
+              type: 'array',
+              items: documentVersionSchema,
+            },
+          },
+          required: ['versions'],
+        },
+        404: errorResponseSchema,
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
+      },
+    },
   }, async (request, reply) => {
     const user = request.user!;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
@@ -160,13 +244,27 @@ export async function editorController(app: FastifyInstance) {
       );
       return reply.send({ versions });
     } catch {
-      return reply.status(404).send({ error: 'Document not found' });
+      return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
     }
   });
 
   // GET /editor/documents/:documentId/versions/:versionId — fetch version content to restore
   app.get('/documents/:documentId/versions/:versionId', {
     preHandler: [authenticate],
+    schema: {
+      response: {
+        200: {
+          type: 'object',
+          properties: {
+            version: documentVersionSchema,
+          },
+          required: ['version'],
+        },
+        404: errorResponseSchema,
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
+      },
+    },
   }, async (request, reply) => {
     const user = request.user!;
     const { versionId } = request.params as { versionId: string };
@@ -175,14 +273,25 @@ export async function editorController(app: FastifyInstance) {
       versionId,
       user.firmId || '00000000-0000-0000-0000-000000000000'
     );
-    if (!version) return reply.status(404).send({ error: 'Version not found' });
+    if (!version) return reply.status(404).send({ error: 'Version not found', message: 'Version not found' });
     return reply.send({ version });
   });
 
   // POST /editor/documents/:documentId/suggest — AI inline suggestion stream (SSE)
   app.post('/documents/:documentId/suggest', {
     preHandler: [authenticate],
-    schema: aiSuggestJsonSchema,
+    schema: {
+      ...aiSuggestJsonSchema,
+      response: {
+        200: {
+          type: 'string',
+          description: 'Event Stream',
+        },
+        404: errorResponseSchema,
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
+      },
+    },
   }, async (request, reply) => {
     const user = request.user!;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
@@ -193,7 +302,7 @@ export async function editorController(app: FastifyInstance) {
       documentId,
       user.firmId || '00000000-0000-0000-0000-000000000000'
     );
-    if (!doc) return reply.status(404).send({ error: 'Document not found' });
+    if (!doc) return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -235,6 +344,15 @@ export async function editorController(app: FastifyInstance) {
           documentTitle: { type: 'string', maxLength: 300 },
         },
       },
+      response: {
+        200: {
+          type: 'string',
+          description: 'Event Stream',
+        },
+        404: errorResponseSchema,
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
+      },
     },
   }, async (request, reply) => {
     const user = request.user!;
@@ -246,7 +364,7 @@ export async function editorController(app: FastifyInstance) {
       documentId,
       user.firmId || '00000000-0000-0000-0000-000000000000'
     );
-    if (!doc) return reply.status(404).send({ error: 'Document not found' });
+    if (!doc) return reply.status(404).send({ error: 'Document not found', message: 'Document not found' });
 
     reply.raw.writeHead(200, {
       'Content-Type': 'text/event-stream',
@@ -286,6 +404,16 @@ export async function editorController(app: FastifyInstance) {
         properties: {
           format: { type: 'string', enum: ['pdf', 'docx'] },
         },
+      },
+      response: {
+        200: {
+          type: 'string',
+          format: 'binary',
+          description: 'Exported file',
+        },
+        400: errorResponseSchema,
+        '4xx': errorResponseSchema,
+        '5xx': errorResponseSchema,
       },
     },
   }, async (request, reply) => {

@@ -73,3 +73,45 @@ export const aiSuggestJsonSchema = {
     properties: { documentId: { type: 'string', format: 'uuid' } },
   },
 };
+
+// Response Models
+export const errorResponseSchema = {
+  type: 'object',
+  properties: {
+    error: { type: 'string' },
+    message: { type: 'string' },
+  },
+};
+
+export const legalDocumentSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    firmId: { type: 'string', format: 'uuid' },
+    userId: { type: 'string', format: 'uuid' },
+    matterId: { type: ['string', 'null'], format: 'uuid' },
+    title: { type: 'string' },
+    content: { type: 'object' },
+    wordCount: { type: 'integer' },
+    status: { type: 'string', enum: ['draft', 'review', 'final', 'archived'] },
+    createdAt: { type: 'string', format: 'date-time' },
+    updatedAt: { type: 'string', format: 'date-time' },
+  },
+  required: ['id', 'firmId', 'userId', 'title', 'content', 'wordCount', 'status', 'createdAt', 'updatedAt'],
+};
+
+export const documentVersionSchema = {
+  type: 'object',
+  properties: {
+    id: { type: 'string', format: 'uuid' },
+    documentId: { type: 'string', format: 'uuid' },
+    firmId: { type: 'string', format: 'uuid' },
+    userId: { type: 'string', format: 'uuid' },
+    content: { type: 'object' },
+    wordCount: { type: 'integer' },
+    label: { type: ['string', 'null'] },
+    createdAt: { type: 'string', format: 'date-time' },
+  },
+  required: ['id', 'documentId', 'firmId', 'userId', 'content', 'wordCount', 'createdAt'],
+};
+
