@@ -9,10 +9,11 @@ import {
   Settings,
   FolderOpen,
   Briefcase,
+  Search,
 } from 'lucide-react';
 
 export type DashboardTab = 'overview' | 'chat' | 'reviewer' | 'profile';
-export type DashboardSection = DashboardTab | 'documents' | 'matters';
+export type DashboardSection = DashboardTab | 'documents' | 'matters' | 'research';
 
 interface SidebarProps {
   active: DashboardSection;
@@ -85,6 +86,10 @@ export function Sidebar({ active, userProfile, onSelectTab }: SidebarProps) {
           <Link href="/dashboard/matters" className={navClasses(active === 'matters')}>
             <Briefcase className="h-4.5 w-4.5" />
             <span>Matters</span>
+          </Link>
+          <Link href="/research" className={navClasses(active === 'research')}>
+            <Search className="h-4.5 w-4.5" />
+            <span>Research Sessions</span>
           </Link>
         </nav>
       </div>

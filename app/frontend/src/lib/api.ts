@@ -1,6 +1,7 @@
 import { createBrowserClient } from '@/lib/supabase/client';
+import { ResearchSession, ResearchMessage } from '@/types/research';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
+export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
 async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createBrowserClient();
@@ -260,5 +261,12 @@ export const api = {
       download(`/matters/${id}/export/pdf`, `matter-${title.replace(/[^a-zA-Z0-9]/g, '_')}.pdf`),
     exportDocx: (id: string, title: string) =>
       download(`/matters/${id}/export/docx`, `matter-${title.replace(/[^a-zA-Z0-9]/g, '_')}.docx`),
+  },
+  research: {
+    list: () => get<{ sessions: ResearchSession[] }>('/api/research/sessions'),
+    getById: (id: string) =>
+      get<{ session: ResearchSession; messages: ResearchMessage[] }>(`/api/research/sessions/${id}`),
+    create: (body: { title: string; query: string; matterId?: string }) =>
+      post<{ session: ResearchSession }>('/api/research/sessions', body),
   },
 };
