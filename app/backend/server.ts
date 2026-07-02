@@ -13,6 +13,7 @@ import { researchController } from '#domains/research/research.controller.js';
 import { contractsController } from '#domains/contracts/contracts.controller.js';
 import { editorController } from '#domains/editor/editor.controller.js';
 import { billingController } from '#domains/billing/billing.controller.js';
+import { onboardingController } from '#domains/onboarding/onboarding.controller.js';
 import fastifySSE from '@fastify/sse';
 import loggerConfig from '#config/loggerConfig.js';
 import swagger from '@fastify/swagger';
@@ -93,6 +94,7 @@ const startServer = async () => {
   fastify.register(contractsController, { prefix: '/contracts' });
   fastify.register(editorController,    { prefix: '/editor' });
   fastify.register(billingController,   { prefix: '/billing' });
+  fastify.register(onboardingController, { prefix: '/onboarding' });
 
   // ── Global error handler ────────────────────────────────────────────────────
   fastify.setErrorHandler(errorHandler);

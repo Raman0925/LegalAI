@@ -1,6 +1,8 @@
 import { FastifyInstance, FastifyPluginOptions, FastifyRequest, FastifyReply } from 'fastify';
 import { sendMessage, streamMessageIterable } from './chat.service.js';
 import { chatRequestSchema, chatResponseSchema, errorResponseSchema } from './chat.validator.js';
+import { planLimit } from '#middlewares/plan-limits.middleware.js';
+import { trackAfterResponse } from '#middlewares/usage-tracker.middleware.js';
 
 interface ChatRequestBody {
   message: string;
@@ -24,10 +26,13 @@ const chatController = async (fastify: FastifyInstance, options: FastifyPluginOp
           '5xx': errorResponseSchema,
         },
       },
-    },
+      preHandler: [planLimit('ai_calls')],
+      onResponse: [trackAfterResponse('ai_calls')],
+    } as Record<string, unknown>,
     async (request: FastifyRequest<{ Body: ChatRequestBody }>, reply: FastifyReply) => {
       const { message, history = [], tier = 'balanced' } = request.body;
-      const result = await sendMessage(message, history, tier, request.user.id);
+      const { id: userId } = request.user;
+      const result = await sendMessage(message, history, tier, userId);
       return reply.code(200).send(result);
     },
   );
@@ -47,9 +52,12 @@ const chatController = async (fastify: FastifyInstance, options: FastifyPluginOp
           '5xx': errorResponseSchema,
         },
       },
-    },
+      preHandler: [planLimit('ai_calls')],
+      onResponse: [trackAfterResponse('ai_calls')],
+    } as Record<string, unknown>,
     async (request: FastifyRequest<{ Body: ChatRequestBody }>, reply: FastifyReply) => {
       const { message, history = [], tier = 'balanced' } = request.body;
+      const { id: userId } = request.user;
 
       if (!reply.sse) {
         return reply.code(406).send({
@@ -59,7 +67,7 @@ const chatController = async (fastify: FastifyInstance, options: FastifyPluginOp
         });
       }
 
-      const sseStream = streamMessageIterable(message, history, tier, request.user.id);
+      const sseStream = streamMessageIterable(message, history, tier, userId);
       return reply.sse.send(sseStream);
     },
   );

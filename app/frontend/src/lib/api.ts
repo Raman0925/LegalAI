@@ -269,4 +269,29 @@ export const api = {
     create: (body: { title: string; query: string; matterId?: string }) =>
       post<{ session: ResearchSession }>('/api/research/sessions', body),
   },
+  onboarding: {
+    createFirm: (firmName: string) =>
+      post<{ firm: { id: string; name: string; slug: string }; profile: { id: string; firmId: string; role: string }; subscription: { status: string; trialEndsAt: string } }>('/onboarding/firm', { firmName }),
+    invite: (email: string) =>
+      post<{ invited: boolean; email: string; expiresAt: string }>('/onboarding/invite', { email }),
+    join: (token: string) =>
+      post<{ joined: boolean; firmId: string; firmName: string }>('/onboarding/join', { token }),
+    getMembers: () =>
+      get<{ members: { id: string; email: string; fullName: string | null; role: string }[]; pendingInvites: { id: string; email: string; expiresAt: string; accepted: boolean }[] }>('/onboarding/members'),
+  },
+  billing: {
+    getPlans: () =>
+      get<{ plans: { id: string; name: string; displayName: string; priceInr: number; maxSeats: number; maxDocuments: number | null; maxAiCallsDay: number; maxStorageGb: number }[] }>('/billing/plans'),
+    getSubscription: () =>
+      get<{ subscription: { id: string; status: string; trialEndsAt: string | null; plan: { displayName: string; priceInr: number; name: string }; currentPeriodEnd: string | null } }>('/billing/subscription'),
+    getUsage: () =>
+      get<{ usage: { aiCallsToday: number; aiCallsLimit: number; aiCallsPercent: number; documentsTotal: number; documentsLimit: number | null; seatsUsed: number; seatsLimit: number; storageUsedGb: number; storageLimit: number }; plan: { displayName: string } }>('/billing/usage'),
+    subscribe: (planName: string, firmName: string, firmEmail: string) =>
+      post<{ subscriptionId: string; shortUrl: string }>('/billing/subscribe', { planName, firmName, firmEmail }),
+    upgrade: (planName: string) =>
+      post<{ upgradeUrl: string }>('/billing/upgrade', { planName }),
+  },
+  // Expose raw helpers for pages that need them
+  post,
+  get,
 };

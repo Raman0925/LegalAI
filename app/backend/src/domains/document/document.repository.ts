@@ -5,6 +5,7 @@ import { FileType } from './document.constant.js';
 interface DocumentRow {
   id: string;
   user_id: string;
+  firm_id: string;
   name: string;
   file_type: FileType;
   storage_path: string;
@@ -20,6 +21,7 @@ function mapRow(row: DocumentRow): DocumentRecord {
   return {
     id: row.id,
     userId: row.user_id,
+    firmId: row.firm_id,
     name: row.name,
     fileType: row.file_type,
     storagePath: row.storage_path,
@@ -36,37 +38,40 @@ export interface DocumentRepository {
   create(params: {
     id: string;
     userId: string;
+    firmId: string;
     name: string;
     fileType: FileType;
     storagePath: string;
     sizeBytes: number | null;
   }): Promise<DocumentRecord>;
-  findById(id: string, userId: string): Promise<DocumentRecord | null>;
-  listByUser(userId: string): Promise<DocumentRecord[]>;
+  findById(id: string, firmId: string): Promise<DocumentRecord | null>;
+  listByFirm(firmId: string): Promise<DocumentRecord[]>;
   updateStatus(
     id: string,
     status: DocumentStatus,
     fields?: { chunkCount?: number; errorMsg?: string | null },
   ): Promise<void>;
-  delete(id: string, userId: string): Promise<DocumentRecord | null>;
+  delete(id: string, firmId: string): Promise<DocumentRecord | null>;
 }
 
 export function createDocumentRepository(pgPool: pg.Pool): DocumentRepository {
   async function create(params: {
     id: string;
     userId: string;
+    firmId: string;
     name: string;
     fileType: FileType;
     storagePath: string;
     sizeBytes: number | null;
   }): Promise<DocumentRecord> {
     const result = await pgPool.query<DocumentRow>(
-      `INSERT INTO documents (id, user_id, name, file_type, storage_path, size_bytes, status)
-       VALUES ($1, $2, $3, $4, $5, $6, 'pending')
+      `INSERT INTO documents (id, user_id, firm_id, name, file_type, storage_path, size_bytes, status)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')
        RETURNING *`,
       [
         params.id,
         params.userId,
+        params.firmId,
         params.name,
         params.fileType,
         params.storagePath,
@@ -76,18 +81,18 @@ export function createDocumentRepository(pgPool: pg.Pool): DocumentRepository {
     return mapRow(result.rows[0]);
   }
 
-  async function findById(id: string, userId: string): Promise<DocumentRecord | null> {
+  async function findById(id: string, firmId: string): Promise<DocumentRecord | null> {
     const result = await pgPool.query<DocumentRow>(
-      `SELECT * FROM documents WHERE id = $1 AND user_id = $2`,
-      [id, userId],
+      `SELECT * FROM documents WHERE id = $1 AND firm_id = $2`,
+      [id, firmId],
     );
     return result.rows[0] ? mapRow(result.rows[0]) : null;
   }
 
-  async function listByUser(userId: string): Promise<DocumentRecord[]> {
+  async function listByFirm(firmId: string): Promise<DocumentRecord[]> {
     const result = await pgPool.query<DocumentRow>(
-      `SELECT * FROM documents WHERE user_id = $1 ORDER BY created_at DESC`,
-      [userId],
+      `SELECT * FROM documents WHERE firm_id = $1 ORDER BY created_at DESC`,
+      [firmId],
     );
     return result.rows.map(mapRow);
   }
@@ -107,10 +112,10 @@ export function createDocumentRepository(pgPool: pg.Pool): DocumentRepository {
     );
   }
 
-  async function deleteDocument(id: string, userId: string): Promise<DocumentRecord | null> {
+  async function deleteDocument(id: string, firmId: string): Promise<DocumentRecord | null> {
     const result = await pgPool.query<DocumentRow>(
-      `DELETE FROM documents WHERE id = $1 AND user_id = $2 RETURNING *`,
-      [id, userId],
+      `DELETE FROM documents WHERE id = $1 AND firm_id = $2 RETURNING *`,
+      [id, firmId],
     );
     return result.rows[0] ? mapRow(result.rows[0]) : null;
   }
@@ -118,7 +123,7 @@ export function createDocumentRepository(pgPool: pg.Pool): DocumentRepository {
   return {
     create,
     findById,
-    listByUser,
+    listByFirm,
     updateStatus,
     delete: deleteDocument,
   };

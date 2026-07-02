@@ -2,6 +2,8 @@ import { vi, describe, it, expect, beforeEach, afterEach } from 'vitest';
 import Fastify from 'fastify';
 import fastifySSE from '@fastify/sse';
 import chatController from '../chat.controller.js';
+import { planLimit } from '#middlewares/plan-limits.middleware.js';
+import { trackAfterResponse } from '#middlewares/usage-tracker.middleware.js';
 
 // Mock the ChatService functional exports directly
 vi.mock('../chat.service.js', () => {
@@ -18,6 +20,17 @@ vi.mock('../chat.service.js', () => {
   };
 });
 
+// Plan limits / usage tracking are enforced per-firm and exercised in
+// plan-limits.middleware.test.ts — no-op them here so route behavior can be
+// tested in isolation.
+vi.mock('#middlewares/plan-limits.middleware.js', () => ({
+  planLimit: vi.fn().mockReturnValue(async () => {}),
+}));
+
+vi.mock('#middlewares/usage-tracker.middleware.js', () => ({
+  trackAfterResponse: vi.fn().mockReturnValue(async () => {}),
+}));
+
 describe('Chat Controller Routes', () => {
   let app: any;
 
@@ -33,6 +46,11 @@ describe('Chat Controller Routes', () => {
 
   afterEach(async () => {
     await app.close();
+  });
+
+  it('wires planLimit and trackAfterResponse for ai_calls on /chat and /chat/stream', () => {
+    expect(planLimit).toHaveBeenCalledWith('ai_calls');
+    expect(trackAfterResponse).toHaveBeenCalledWith('ai_calls');
   });
 
   it('POST /chat returns 400 when body is invalid', async () => {

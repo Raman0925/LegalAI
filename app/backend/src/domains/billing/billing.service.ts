@@ -5,11 +5,18 @@ import * as repo from './billing.repository.js';
 import { config } from '../../config/index.js';
 import { FirmSubscription } from './billing.types.js';
 
-// Single Razorpay client instance
-const razorpay = new Razorpay({
-  key_id: config.razorpayKeyId,
-  key_secret: config.razorpayKeySecret,
-});
+// Lazily constructed Razorpay client — avoids throwing at module load time
+// when keys aren't configured (e.g. running unrelated unit tests).
+let razorpayClient: Razorpay | null = null;
+function getRazorpay(): Razorpay {
+  if (!razorpayClient) {
+    razorpayClient = new Razorpay({
+      key_id: config.razorpayKeyId,
+      key_secret: config.razorpayKeySecret,
+    });
+  }
+  return razorpayClient;
+}
 
 /**
  * Create a Razorpay subscription for a firm.
@@ -29,7 +36,7 @@ export async function createRazorpaySubscription(
   if (!plan.razorpayPlanId) throw new Error('Plan not configured in Razorpay');
 
   // Create Razorpay subscription
-  const subscription = await razorpay.subscriptions.create({
+  const subscription = await getRazorpay().subscriptions.create({
     plan_id: plan.razorpayPlanId,
     customer_notify: 1,
     quantity: 1,
@@ -118,7 +125,7 @@ export async function createUpgradeLink(
   if (!sub?.razorpaySubscriptionId) throw new Error('No active subscription');
 
   // Update Razorpay subscription plan
-  await razorpay.subscriptions.update(sub.razorpaySubscriptionId, {
+  await getRazorpay().subscriptions.update(sub.razorpaySubscriptionId, {
     plan_id: plan.razorpayPlanId!,
     quantity: 1,
   } as any);

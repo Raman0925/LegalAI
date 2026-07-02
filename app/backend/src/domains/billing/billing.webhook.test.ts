@@ -1,9 +1,18 @@
-import { describe, it, expect } from 'vitest';
-import { verifyWebhookSignature } from './billing.service.js';
+import { describe, it, expect, vi } from 'vitest';
 import crypto from 'crypto';
 
-// Override config for tests — actual keys not needed
-process.env.RAZORPAY_WEBHOOK_SECRET = 'test_webhook_secret_for_unit_tests';
+// Override config for tests — actual keys not needed.
+// Must be mocked (not just `process.env` set) since config/index.ts reads
+// process.env at import time, which happens before any test file body runs.
+vi.mock('#config/index.js', () => ({
+  config: {
+    razorpayKeyId: '',
+    razorpayKeySecret: '',
+    razorpayWebhookSecret: 'test_webhook_secret_for_unit_tests',
+  },
+}));
+
+const { verifyWebhookSignature } = await import('./billing.service.js');
 
 describe('verifyWebhookSignature', () => {
   const secret = 'test_webhook_secret_for_unit_tests';

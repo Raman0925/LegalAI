@@ -15,6 +15,7 @@ export interface Config {
   razorpayKeySecret: string;
   razorpayWebhookSecret: string;
   resendApiKey: string;
+  frontendUrl: string;
 }
 
 export const config: Config = {
@@ -31,4 +32,5 @@ export const config: Config = {
   razorpayKeySecret: process.env.RAZORPAY_KEY_SECRET || '',
   razorpayWebhookSecret: process.env.RAZORPAY_WEBHOOK_SECRET || '',
   resendApiKey: process.env.RESEND_API_KEY || '',
+  frontendUrl: process.env.FRONTEND_URL || 'http://localhost:3001',
 };

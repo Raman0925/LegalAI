@@ -43,8 +43,10 @@ export default async function documentController(
       }
 
       const buffer = await file.toBuffer();
+      const { id: userId, firmId } = request.user;
       const result = await documentService.upload(
-        request.user.id,
+        userId,
+        firmId,
         {
           filename: file.filename,
           mimetype: file.mimetype,
@@ -70,7 +72,7 @@ export default async function documentController(
       },
     },
     async (request: FastifyRequest) => {
-      return documentService.list(request.user.id);
+      return documentService.list(request.user.firmId);
     },
   );
 
@@ -88,7 +90,7 @@ export default async function documentController(
       },
     },
     async (request: FastifyRequest<{ Params: { id: string } }>) => {
-      return documentService.getById(request.params.id, request.user.id);
+      return documentService.getById(request.params.id, request.user.firmId);
     },
   );
 
@@ -106,7 +108,7 @@ export default async function documentController(
       },
     },
     async (request: FastifyRequest<{ Params: { id: string } }>) => {
-      return documentService.getStatus(request.params.id, request.user.id);
+      return documentService.getStatus(request.params.id, request.user.firmId);
     },
   );
 
@@ -124,7 +126,7 @@ export default async function documentController(
       },
     },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-      await documentService.remove(request.params.id, request.user.id);
+      await documentService.remove(request.params.id, request.user.firmId);
       return reply.code(204).send();
     },
   );

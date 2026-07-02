@@ -36,6 +36,16 @@ const chunker = createChunker({ maxTokens: CHUNK_MAX_TOKENS, overlapTokens: CHUN
 const ingestionPipeline = createIngestionPipeline(chunker, embeddingService, vectorStore);
 const storage = createStorageService(createSupabaseAdminClient(), STORAGE_BUCKET);
 
+// firmId is '' when the caller's profile has no firm yet (see auth.middleware.ts) —
+// fail closed with 402 rather than let an empty string reach a firm_id UUID column.
+function assertFirm(firmId: string): void {
+  if (!firmId) {
+    const error = new Error('Firm not configured. Please complete onboarding.') as FastifyError;
+    error.statusCode = 402;
+    throw error;
+  }
+}
+
 export interface UploadedFile {
   filename: string;
   mimetype: string;
@@ -45,16 +55,17 @@ export interface UploadedFile {
 export interface DocumentService {
   upload(
     userId: string,
+    firmId: string,
     file: UploadedFile,
     log: FastifyBaseLogger,
   ): Promise<{ documentId: string; status: 'pending' }>;
-  list(userId: string): Promise<DocumentRecord[]>;
-  getById(id: string, userId: string): Promise<DocumentRecord>;
+  list(firmId: string): Promise<DocumentRecord[]>;
+  getById(id: string, firmId: string): Promise<DocumentRecord>;
   getStatus(
     id: string,
-    userId: string,
+    firmId: string,
   ): Promise<{ status: string; chunkCount: number; errorMsg: string | null }>;
-  remove(id: string, userId: string): Promise<void>;
+  remove(id: string, firmId: string): Promise<void>;
 }
 
 export function createDocumentService(pgPool: pg.Pool): DocumentService {
@@ -74,9 +85,11 @@ export function createDocumentService(pgPool: pg.Pool): DocumentService {
 
   async function upload(
     userId: string,
+    firmId: string,
     file: UploadedFile,
     log: FastifyBaseLogger,
   ): Promise<{ documentId: string; status: 'pending' }> {
+    assertFirm(firmId);
     const fileType = detectFileType(file.mimetype, file.filename);
     const documentId = randomUUID();
     const storagePath = `${userId}/${documentId}/${sanitizeFilename(file.filename)}`;
@@ -86,6 +99,7 @@ export function createDocumentService(pgPool: pg.Pool): DocumentService {
     const doc = await repository.create({
       id: documentId,
       userId,
+      firmId,
       name: file.filename,
       fileType,
       storagePath,
@@ -102,12 +116,14 @@ export function createDocumentService(pgPool: pg.Pool): DocumentService {
     return { documentId: doc.id, status: 'pending' };
   }
 
-  async function list(userId: string): Promise<DocumentRecord[]> {
-    return repository.listByUser(userId);
+  async function list(firmId: string): Promise<DocumentRecord[]> {
+    assertFirm(firmId);
+    return repository.listByFirm(firmId);
   }
 
-  async function getById(id: string, userId: string): Promise<DocumentRecord> {
-    const doc = await repository.findById(id, userId);
+  async function getById(id: string, firmId: string): Promise<DocumentRecord> {
+    assertFirm(firmId);
+    const doc = await repository.findById(id, firmId);
     if (!doc) {
       const error = new Error('Document not found') as FastifyError;
       error.statusCode = 404;
@@ -118,16 +134,16 @@ export function createDocumentService(pgPool: pg.Pool): DocumentService {
 
   async function getStatus(
     id: string,
-    userId: string,
+    firmId: string,
   ): Promise<{ status: string; chunkCount: number; errorMsg: string | null }> {
-    const doc = await getById(id, userId);
+    const doc = await getById(id, firmId);
     return { status: doc.status, chunkCount: doc.chunkCount, errorMsg: doc.errorMsg };
   }
 
-  async function remove(id: string, userId: string): Promise<void> {
-    const doc = await getById(id, userId);
+  async function remove(id: string, firmId: string): Promise<void> {
+    const doc = await getById(id, firmId);
     await storage.remove(doc.storagePath);
-    await repository.delete(id, userId);
+    await repository.delete(id, firmId);
   }
 
   return { upload, list, getById, getStatus, remove };

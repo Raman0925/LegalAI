@@ -37,7 +37,7 @@ export function trackAfterResponse(metric: UsageMetric, quantity = 1) {
     const user = request.user;
     if (!user) return;
 
-    const firmId = user.firmId ?? '00000000-0000-0000-0000-000000000000';
+    const firmId = user.firmId;
     const supabase = request.server.supabase as SupabaseClient;
 
     // ── Fire and forget — non-blocking ────────────────────────────────────────

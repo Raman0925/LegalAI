@@ -57,7 +57,7 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
   try {
     const result = await request.server.pg.query(
       `SELECT
-         id, email, full_name, avatar_url, firm_id,
+         id, email, full_name, avatar_url, firm_id, role,
          created_at, updated_at
        FROM public.profiles
        WHERE id = $1`,
@@ -79,6 +79,7 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
         full_name: (decoded['user_metadata'] as Record<string, string>)?.full_name || null,
         avatar_url: (decoded['user_metadata'] as Record<string, string>)?.avatar_url || null,
         firmId: '',           // empty — not a valid UUID, will fail firm-scoped queries safely
+        role: 'member',       // default — actual role resolved after firm join
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       };
@@ -89,6 +90,7 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
         full_name: profile.full_name,
         avatar_url: profile.avatar_url,
         firmId: profile.firm_id ?? '',   // firm_id from profiles table
+        role: profile.role ?? 'member',  // role from profiles table
         created_at: profile.created_at,
         updated_at: profile.updated_at,
       };

@@ -18,6 +18,7 @@ declare module 'fastify' {
       created_at: string;
       updated_at: string;
       firmId: string;           // always set — never undefined after auth middleware
+      role: string;             // 'owner' | 'admin' | 'member' — from profiles table
     };
 
     // Populated by planLimit middleware — available inside route handlers

@@ -8,6 +8,7 @@ export type RiskLevel = 'high' | 'medium' | 'low';
 export interface MatterRecord {
   id: string;
   userId: string;
+  firmId: string;
   title: string;
   clientName: string | null;
   matterType: MatterType;

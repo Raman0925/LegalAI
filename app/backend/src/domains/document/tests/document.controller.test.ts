@@ -43,6 +43,8 @@ describe('Document Controller Routes', () => {
     app.addHook('onRequest', async (request: any) => {
       request.user = {
         id: 'user-1',
+        firmId: 'firm-1',
+        role: 'member',
         email: 'a@b.com',
         full_name: null,
         avatar_url: null,
@@ -74,6 +76,7 @@ describe('Document Controller Routes', () => {
     expect(JSON.parse(response.payload)).toEqual({ documentId: 'doc-1', status: 'pending' });
     expect(mockUpload).toHaveBeenCalledWith(
       'user-1',
+      'firm-1',
       expect.objectContaining({
         filename: 'contract.txt',
         mimetype: 'text/plain',
@@ -110,7 +113,7 @@ describe('Document Controller Routes', () => {
     const response = await app.inject({ method: 'GET', url: '/' });
 
     expect(response.statusCode).toBe(200);
-    expect(mockList).toHaveBeenCalledWith('user-1');
+    expect(mockList).toHaveBeenCalledWith('firm-1');
   });
 
   it('GET /:id/status returns lightweight status payload', async () => {
@@ -118,7 +121,7 @@ describe('Document Controller Routes', () => {
     const response = await app.inject({ method: 'GET', url: '/doc-1/status' });
 
     expect(response.statusCode).toBe(200);
-    expect(mockGetStatus).toHaveBeenCalledWith('doc-1', 'user-1');
+    expect(mockGetStatus).toHaveBeenCalledWith('doc-1', 'firm-1');
     expect(JSON.parse(response.payload)).toEqual({
       status: 'processing',
       chunkCount: 0,
@@ -131,6 +134,6 @@ describe('Document Controller Routes', () => {
     const response = await app.inject({ method: 'DELETE', url: '/doc-1' });
 
     expect(response.statusCode).toBe(204);
-    expect(mockRemove).toHaveBeenCalledWith('doc-1', 'user-1');
+    expect(mockRemove).toHaveBeenCalledWith('doc-1', 'firm-1');
   });
 });

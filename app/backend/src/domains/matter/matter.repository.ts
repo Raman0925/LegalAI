@@ -14,6 +14,7 @@ import { DocumentRecord } from '../document/document.model.js';
 interface MatterRow {
   id: string;
   user_id: string;
+  firm_id: string;
   title: string;
   client_name: string | null;
   matter_type: MatterType;
@@ -47,6 +48,7 @@ interface DraftRow {
 interface DocumentRow {
   id: string;
   user_id: string;
+  firm_id: string;
   name: string;
   file_type: 'pdf' | 'docx' | 'txt' | 'image';
   storage_path: string;
@@ -62,6 +64,7 @@ function mapMatterRow(row: MatterRow): MatterRecord & { documentCount?: number }
   return {
     id: row.id,
     userId: row.user_id,
+    firmId: row.firm_id,
     title: row.title,
     clientName: row.client_name,
     matterType: row.matter_type,
@@ -101,6 +104,7 @@ function mapDocumentRow(row: DocumentRow): DocumentRecord {
   return {
     id: row.id,
     userId: row.user_id,
+    firmId: row.firm_id,
     name: row.name,
     fileType: row.file_type,
     storagePath: row.storage_path,
@@ -116,17 +120,18 @@ function mapDocumentRow(row: DocumentRow): DocumentRecord {
 export interface MatterRepository {
   create(params: {
     userId: string;
+    firmId: string;
     title: string;
     clientName: string | null;
     matterType: MatterType;
     description: string | null;
     status?: MatterStatus;
   }): Promise<MatterRecord>;
-  findById(id: string, userId: string): Promise<MatterRecord | null>;
-  listByUser(userId: string): Promise<MatterRecord[]>;
+  findById(id: string, firmId: string): Promise<MatterRecord | null>;
+  listByFirm(firmId: string): Promise<MatterRecord[]>;
   update(
     id: string,
-    userId: string,
+    firmId: string,
     params: {
       title?: string;
       clientName?: string | null;
@@ -135,7 +140,7 @@ export interface MatterRepository {
       description?: string | null;
     },
   ): Promise<MatterRecord | null>;
-  delete(id: string, userId: string): Promise<boolean>;
+  delete(id: string, firmId: string): Promise<boolean>;
   attachDocument(matterId: string, documentId: string): Promise<void>;
   detachDocument(matterId: string, documentId: string): Promise<void>;
   saveClauses(
@@ -152,13 +157,14 @@ export interface MatterRepository {
     draft: { id?: string; title: string; content: string; draftType: DraftType },
   ): Promise<MatterDraft>;
   deleteDraft(matterId: string, draftId: string): Promise<boolean>;
-  getDetails(id: string, userId: string): Promise<MatterWithDetails | null>;
+  getDetails(id: string, firmId: string): Promise<MatterWithDetails | null>;
   getDocChunks(documentId: string): Promise<string[]>;
 }
 
 export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
   async function create(params: {
     userId: string;
+    firmId: string;
     title: string;
     clientName: string | null;
     matterType: MatterType;
@@ -167,11 +173,12 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
   }): Promise<MatterRecord> {
     const status = params.status ?? 'open';
     const result = await pgPool.query<MatterRow>(
-      `INSERT INTO matters (user_id, title, client_name, matter_type, status, description)
-       VALUES ($1, $2, $3, $4, $5, $6)
+      `INSERT INTO matters (user_id, firm_id, title, client_name, matter_type, status, description)
+       VALUES ($1, $2, $3, $4, $5, $6, $7)
        RETURNING *`,
       [
         params.userId,
+        params.firmId,
         params.title,
         params.clientName,
         params.matterType,
@@ -182,30 +189,30 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     return mapMatterRow(result.rows[0]);
   }
 
-  async function findById(id: string, userId: string): Promise<MatterRecord | null> {
+  async function findById(id: string, firmId: string): Promise<MatterRecord | null> {
     const result = await pgPool.query<MatterRow>(
-      `SELECT * FROM matters WHERE id = $1 AND user_id = $2`,
-      [id, userId],
+      `SELECT * FROM matters WHERE id = $1 AND firm_id = $2`,
+      [id, firmId],
     );
     return result.rows[0] ? mapMatterRow(result.rows[0]) : null;
   }
 
-  async function listByUser(userId: string): Promise<MatterRecord[]> {
+  async function listByFirm(firmId: string): Promise<MatterRecord[]> {
     const result = await pgPool.query<MatterRow>(
       `SELECT m.*, COUNT(md.document_id)::int AS document_count
        FROM matters m
        LEFT JOIN matter_documents md ON md.matter_id = m.id
-       WHERE m.user_id = $1
+       WHERE m.firm_id = $1
        GROUP BY m.id
        ORDER BY m.created_at DESC`,
-      [userId],
+      [firmId],
     );
     return result.rows.map(mapMatterRow);
   }
 
   async function update(
     id: string,
-    userId: string,
+    firmId: string,
     params: {
       title?: string;
       clientName?: string | null;
@@ -216,7 +223,7 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
   ): Promise<MatterRecord | null> {
     // Dynamically build the update query
     const setClause: string[] = [];
-    const values: any[] = [id, userId];
+    const values: any[] = [id, firmId];
     let index = 3;
 
     if (params.title !== undefined) {

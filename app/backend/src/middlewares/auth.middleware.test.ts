@@ -86,6 +86,8 @@ describe('authMiddleware', () => {
       email: 'test@example.com',
       full_name: 'John Doe',
       avatar_url: 'https://example.com/avatar.png',
+      firm_id: 'firm-id-123',
+      role: 'owner',
       created_at: '2026-06-14T08:00:00Z',
       updated_at: '2026-06-14T08:00:00Z',
     };
@@ -106,6 +108,8 @@ describe('authMiddleware', () => {
       },
       log: {
         warn: vi.fn(),
+        debug: vi.fn(),
+        error: vi.fn(),
       },
     };
     const reply: any = {};
@@ -113,10 +117,19 @@ describe('authMiddleware', () => {
     await authMiddleware(req, reply);
 
     expect(mockQuery).toHaveBeenCalledWith(
-      'SELECT id, email, full_name, avatar_url, created_at, updated_at FROM public.profiles WHERE id = $1',
+      expect.stringContaining('firm_id, role'),
       ['user-id-123'],
     );
-    expect(req.user).toEqual(mockProfile);
+    expect(req.user).toEqual({
+      id: mockProfile.id,
+      email: mockProfile.email,
+      full_name: mockProfile.full_name,
+      avatar_url: mockProfile.avatar_url,
+      firmId: mockProfile.firm_id,
+      role: mockProfile.role,
+      created_at: mockProfile.created_at,
+      updated_at: mockProfile.updated_at,
+    });
   });
 
   it('should use fallback metadata when profile is not found in database', async () => {
@@ -147,6 +160,8 @@ describe('authMiddleware', () => {
       },
       log: {
         warn: mockWarn,
+        debug: vi.fn(),
+        error: vi.fn(),
       },
     };
     const reply: any = {};
@@ -154,13 +169,15 @@ describe('authMiddleware', () => {
     await authMiddleware(req, reply);
 
     expect(mockQuery).toHaveBeenCalledWith(
-      'SELECT id, email, full_name, avatar_url, created_at, updated_at FROM public.profiles WHERE id = $1',
+      expect.stringContaining('firm_id, role'),
       ['user-id-456'],
     );
     expect(req.user.id).toBe('user-id-456');
     expect(req.user.email).toBe('fallback@example.com');
     expect(req.user.full_name).toBe('Fallback User');
     expect(req.user.avatar_url).toBeNull();
+    expect(req.user.firmId).toBe('');
+    expect(req.user.role).toBe('member');
     expect(req.user.created_at).toBeDefined();
     expect(req.user.updated_at).toBeDefined();
     expect(mockWarn).toHaveBeenCalled();

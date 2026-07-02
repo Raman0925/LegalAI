@@ -5,6 +5,7 @@ export type DocumentStatus = 'pending' | 'processing' | 'ready' | 'failed';
 export interface DocumentRecord {
   id: string;
   userId: string;
+  firmId: string;
   name: string;
   fileType: FileType;
   storagePath: string;

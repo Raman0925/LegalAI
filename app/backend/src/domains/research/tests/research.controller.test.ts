@@ -78,6 +78,14 @@ vi.mock('../research.service.js', () => {
   };
 });
 
+vi.mock('#middlewares/plan-limits.middleware.js', () => ({
+  planLimit: vi.fn().mockReturnValue(async () => {}),
+}));
+
+vi.mock('#middlewares/usage-tracker.middleware.js', () => ({
+  trackAfterResponse: vi.fn().mockReturnValue(async () => {}),
+}));
+
 describe('Research Controller', () => {
   let app: any;
 
