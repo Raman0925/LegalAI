@@ -4,6 +4,7 @@ create extension if not exists vector;
 
 create table documents (
   id           uuid primary key default gen_random_uuid(),
+  firm_id      uuid not null references public.firms(id) on delete cascade,
   user_id      uuid not null references auth.users(id) on delete cascade,
   name         text not null,
   file_type    text not null check (file_type in ('pdf', 'docx', 'txt', 'image')),
@@ -17,6 +18,7 @@ create table documents (
 );
 
 create index documents_user_id_idx on documents (user_id);
+create index documents_firm_id_idx on documents (firm_id);
 
 -- chunk_index/token_count are kept as real columns for ordering and token-budget
 -- queries (see utils/tokens/tokenBudgetManager.ts); metadata stays JSONB so the
@@ -49,13 +51,13 @@ alter table document_chunks enable row level security;
 
 create policy "Users see own documents"
   on documents for all
-  using (auth.uid() = user_id);
+  using (firm_id = public.get_auth_user_firm_id());
 
 create policy "Users see own chunks"
   on document_chunks for all
   using (
     document_id in (
-      select id from documents where user_id = auth.uid()
+      select id from documents where firm_id = public.get_auth_user_firm_id()
     )
   );
 

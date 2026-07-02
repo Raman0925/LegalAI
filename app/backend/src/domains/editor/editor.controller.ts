@@ -135,7 +135,6 @@ export async function editorController(app: FastifyInstance) {
     const { firmId, id: userId } = request.user;
     const { documentId } = DocumentIdParamSchema.parse(request.params);
     const body = UpdateDocumentSchema.parse(request.body);
-    const { saveCount = 0 } = request.query as { saveCount?: number };
 
     await autoSaveDocument(app.supabase, {
       documentId,
@@ -144,7 +143,6 @@ export async function editorController(app: FastifyInstance) {
       content: body.content as never,
       wordCount: body.wordCount,
       title: body.title,
-      saveCount: Number(saveCount),
     });
 
     return reply.send({ saved: true });

@@ -2,6 +2,7 @@
 
 CREATE TABLE matters (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  firm_id      UUID NOT NULL REFERENCES public.firms(id) on delete cascade,
   user_id      UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title        TEXT NOT NULL,
   client_name  TEXT,
@@ -15,6 +16,7 @@ CREATE TABLE matters (
 );
 
 CREATE INDEX matters_user_id_idx ON matters (user_id);
+CREATE INDEX idx_matters_firm ON matters (firm_id);
 
 CREATE TABLE matter_documents (
   matter_id   UUID NOT NULL REFERENCES matters(id) ON DELETE CASCADE,
@@ -54,20 +56,17 @@ ALTER TABLE matter_documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matter_clauses ENABLE ROW LEVEL SECURITY;
 ALTER TABLE matter_drafts ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Users manage own matters"
-  ON matters FOR ALL USING (auth.uid() = user_id);
+CREATE POLICY "Firm level isolation on matters" ON matters
+  FOR ALL USING (firm_id = public.get_auth_user_firm_id());
 
-CREATE POLICY "Users manage own matter_documents"
-  ON matter_documents FOR ALL
-  USING (matter_id IN (SELECT id FROM matters WHERE user_id = auth.uid()));
+CREATE POLICY "Firm level isolation on matter_documents" ON matter_documents
+  FOR ALL USING (matter_id IN (SELECT id FROM matters WHERE firm_id = public.get_auth_user_firm_id()));
 
-CREATE POLICY "Users manage own matter_clauses"
-  ON matter_clauses FOR ALL
-  USING (matter_id IN (SELECT id FROM matters WHERE user_id = auth.uid()));
+CREATE POLICY "Firm level isolation on matter_clauses" ON matter_clauses
+  FOR ALL USING (matter_id IN (SELECT id FROM matters WHERE firm_id = public.get_auth_user_firm_id()));
 
-CREATE POLICY "Users manage own matter_drafts"
-  ON matter_drafts FOR ALL
-  USING (matter_id IN (SELECT id FROM matters WHERE user_id = auth.uid()));
+CREATE POLICY "Firm level isolation on matter_drafts" ON matter_drafts
+  FOR ALL USING (matter_id IN (SELECT id FROM matters WHERE firm_id = public.get_auth_user_firm_id()));
 
 -- Trigger updated_at on matters and matter_drafts
 CREATE TRIGGER matters_updated_at

@@ -133,24 +133,23 @@ export async function autoSaveDocument(
     content: JSONContent;
     wordCount: number;
     title?: string;
-    saveCount: number;   // passed from frontend to decide when to snapshot
   }
 ) {
-  await repo.updateDocument(supabase, params.documentId, params.firmId, {
+  const updatedDoc = await repo.updateDocument(supabase, params.documentId, params.firmId, {
     content: params.content,
     wordCount: params.wordCount,
     title: params.title,
   });
 
   // Save a version snapshot every 10 auto-saves
-  if (params.saveCount > 0 && params.saveCount % 10 === 0) {
+  if (updatedDoc.saveCount > 0 && updatedDoc.saveCount % 10 === 0) {
     await repo.saveVersion(supabase, {
       documentId: params.documentId,
       firmId: params.firmId,
       userId: params.userId,
       content: params.content,
       wordCount: params.wordCount,
-      label: `Auto-snapshot #${params.saveCount}`,
+      label: `Auto-snapshot #${updatedDoc.saveCount}`,
     });
   }
 }

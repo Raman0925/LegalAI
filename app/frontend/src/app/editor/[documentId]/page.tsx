@@ -57,11 +57,10 @@ export default function EditorDetailPage() {
 
   const handleSave = async (content: JSONContent, words: number) => {
     setSaveStatus('saving');
-    saveCountRef.current += 1;
     try {
       const authHeaders = await getAuthHeaders();
       const res = await fetch(
-        `/api/proxy?path=/editor/documents/${documentId}&saveCount=${saveCountRef.current}`,
+        `/api/proxy?path=/editor/documents/${documentId}`,
         {
           method: 'PUT',
           headers: authHeaders,
@@ -92,7 +91,7 @@ export default function EditorDetailPage() {
     try {
       const authHeaders = await getAuthHeaders();
       const res = await fetch(
-        `/api/proxy?path=/editor/documents/${documentId}&saveCount=${saveCountRef.current}`,
+        `/api/proxy?path=/editor/documents/${documentId}`,
         {
           method: 'PUT',
           headers: authHeaders,

@@ -176,6 +176,7 @@ function mapDocument(row: Record<string, unknown>): LegalDocument {
     title: row.title as string,
     content: (row.content ?? {}) as JSONContent,
     wordCount: row.word_count as number,
+    saveCount: (row.save_count ?? 0) as number,
     status: row.status as LegalDocument['status'],
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),

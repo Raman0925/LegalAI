@@ -19,6 +19,7 @@ export interface LegalDocument {
   title: string;
   content: JSONContent;
   wordCount: number;
+  saveCount: number;
   status: 'draft' | 'review' | 'final' | 'archived';
   createdAt: Date;
   updatedAt: Date;

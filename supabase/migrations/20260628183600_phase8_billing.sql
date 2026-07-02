@@ -34,16 +34,17 @@ CREATE TABLE IF NOT EXISTS firm_subscriptions (
 );
 
 CREATE TABLE IF NOT EXISTS usage_records (
-  id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  firm_id       UUID NOT NULL REFERENCES firms(id) ON DELETE CASCADE,
-  usage_date    DATE NOT NULL DEFAULT CURRENT_DATE,
-  metric        TEXT NOT NULL
-                  CHECK (metric IN (
-                    'ai_calls', 'documents_created',
-                    'storage_bytes', 'research_sessions'
-                  )),
-  quantity      INTEGER NOT NULL DEFAULT 1,
-  created_at    TIMESTAMPTZ NOT NULL DEFAULT now()
+  id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  firm_id         UUID NOT NULL REFERENCES firms(id) ON DELETE CASCADE,
+  usage_date      DATE NOT NULL DEFAULT CURRENT_DATE,
+  metric          TEXT NOT NULL
+                    CHECK (metric IN (
+                      'ai_calls', 'documents_created',
+                      'storage_bytes', 'research_sessions'
+                    )),
+  quantity        INTEGER NOT NULL DEFAULT 1,
+  idempotency_key TEXT UNIQUE,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE IF NOT EXISTS webhook_events (
@@ -98,8 +99,53 @@ ALTER TABLE usage_records       ENABLE ROW LEVEL SECURITY;
 -- Scoped Policies
 DROP POLICY IF EXISTS "firm_isolation_subs" ON firm_subscriptions;
 CREATE POLICY "firm_isolation_subs" ON firm_subscriptions
-  USING (firm_id = current_setting('app.current_firm_id', true)::UUID);
+  USING (firm_id = public.get_auth_user_firm_id());
 
 DROP POLICY IF EXISTS "firm_isolation_usage" ON usage_records;
 CREATE POLICY "firm_isolation_usage" ON usage_records
-  USING (firm_id = current_setting('app.current_firm_id', true)::UUID);
+  USING (firm_id = public.get_auth_user_firm_id());
+
+-- ─── Seat Limit Trigger (Defends against concurrent joins exceeding plan seats)
+CREATE OR REPLACE FUNCTION check_firm_seat_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_max_seats INT;
+  v_current_seats INT;
+BEGIN
+  -- If joining or changing firm
+  IF NEW.firm_id IS NOT NULL AND (TG_OP = 'INSERT' OR OLD.firm_id IS NULL OR NEW.firm_id <> OLD.firm_id) THEN
+    -- Lock the parent firm row to serialize seat check operations for this tenant
+    PERFORM 1 FROM public.firms WHERE id = NEW.firm_id FOR UPDATE;
+
+    -- Get max seats limit from subscription
+    SELECT sp.max_seats INTO v_max_seats
+    FROM public.firm_subscriptions fs
+    JOIN public.subscription_plans sp ON fs.plan_id = sp.id
+    WHERE fs.firm_id = NEW.firm_id;
+
+    -- If no subscription found, assume Starter/default limit of 3
+    IF v_max_seats IS NULL THEN
+      v_max_seats := 3;
+    END IF;
+
+    -- Count active profiles belonging to this firm (excluding the one joining/being updated)
+    SELECT COUNT(*) INTO v_current_seats
+    FROM public.profiles
+    WHERE firm_id = NEW.firm_id AND id <> NEW.id;
+
+    -- If adding this user would exceed max seats, reject
+    IF v_current_seats + 1 > v_max_seats THEN
+      RAISE EXCEPTION 'Firm seat limit of % reached', v_max_seats;
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
+
+-- Trigger definition
+DROP TRIGGER IF EXISTS trg_check_firm_seat_limit ON public.profiles;
+CREATE TRIGGER trg_check_firm_seat_limit
+  BEFORE INSERT OR UPDATE OF firm_id ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION check_firm_seat_limit();

@@ -2,7 +2,7 @@
 
 CREATE TABLE IF NOT EXISTS contracts (
   id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  firm_id         UUID NOT NULL, -- references firms(id) if firms table existed, but user-level RLS scopes this
+  firm_id         UUID NOT NULL REFERENCES public.firms(id) ON DELETE CASCADE,
   user_id         UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   matter_id       UUID REFERENCES matters(id) ON DELETE SET NULL,
   filename        TEXT NOT NULL,
@@ -54,16 +54,16 @@ ALTER TABLE contract_pages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE contract_annotations ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "firm_isolation_contracts" ON contracts
-  USING (firm_id = coalesce(current_setting('app.current_firm_id', true), '00000000-0000-0000-0000-000000000000')::UUID);
+  USING (firm_id = public.get_auth_user_firm_id());
 
 CREATE POLICY "firm_isolation_pages" ON contract_pages
   USING (contract_id IN (
     SELECT id FROM contracts
-    WHERE firm_id = coalesce(current_setting('app.current_firm_id', true), '00000000-0000-0000-0000-000000000000')::UUID
+    WHERE firm_id = public.get_auth_user_firm_id()
   ));
 
 CREATE POLICY "firm_isolation_annotations" ON contract_annotations
   USING (contract_id IN (
     SELECT id FROM contracts
-    WHERE firm_id = coalesce(current_setting('app.current_firm_id', true), '00000000-0000-0000-0000-000000000000')::UUID
+    WHERE firm_id = public.get_auth_user_firm_id()
   ));

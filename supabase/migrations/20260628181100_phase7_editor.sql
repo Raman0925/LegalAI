@@ -2,12 +2,13 @@
 
 CREATE TABLE IF NOT EXISTS legal_documents (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  firm_id       UUID NOT NULL, -- firm scoping
+  firm_id       UUID NOT NULL REFERENCES public.firms(id) ON DELETE CASCADE,
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   matter_id     UUID REFERENCES matters(id) ON DELETE SET NULL,
   title         TEXT NOT NULL DEFAULT 'Untitled Document',
   content       JSONB NOT NULL DEFAULT '{}',   -- TipTap JSON output
   word_count    INTEGER NOT NULL DEFAULT 0,
+  save_count    INTEGER NOT NULL DEFAULT 0,    -- server-side running counter
   status        TEXT NOT NULL DEFAULT 'draft'
                   CHECK (status IN ('draft', 'review', 'final', 'archived')),
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
@@ -17,7 +18,7 @@ CREATE TABLE IF NOT EXISTS legal_documents (
 CREATE TABLE IF NOT EXISTS document_versions (
   id            UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   document_id   UUID NOT NULL REFERENCES legal_documents(id) ON DELETE CASCADE,
-  firm_id       UUID NOT NULL, -- firm scoping
+  firm_id       UUID NOT NULL REFERENCES public.firms(id) ON DELETE CASCADE,
   user_id       UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   content       JSONB NOT NULL,               -- immutable snapshot
   word_count    INTEGER NOT NULL DEFAULT 0,
@@ -37,7 +38,7 @@ ALTER TABLE legal_documents  ENABLE ROW LEVEL SECURITY;
 ALTER TABLE document_versions ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "firm_isolation_docs" ON legal_documents
-  USING (firm_id = coalesce(current_setting('app.current_firm_id', true), '00000000-0000-0000-0000-000000000000')::UUID);
+  USING (firm_id = public.get_auth_user_firm_id());
 
 CREATE POLICY "firm_isolation_versions" ON document_versions
-  USING (firm_id = coalesce(current_setting('app.current_firm_id', true), '00000000-0000-0000-0000-000000000000')::UUID);
+  USING (firm_id = public.get_auth_user_firm_id());

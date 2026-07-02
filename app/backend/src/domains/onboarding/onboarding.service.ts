@@ -154,26 +154,20 @@ export async function joinFirm(
   // Check invite record in DB
   const invite = await repo.getInviteByToken(supabase, token);
   if (!invite) throw new Error('Invite not found or already used');
-  if (invite.accepted) throw new Error('This invite has already been used');
-  if (new Date() > invite.expiresAt) throw new Error('Invite has expired');
-
-  // Check seat limit one more time (race condition guard)
-  const subscription = await getSubscriptionByFirm(supabase, invite.firmId);
-  if (!subscription) throw new Error('Firm has no active subscription');
-
-  const currentSeats = await repo.getSeatCount(supabase, invite.firmId);
-  const seatCheck = checkSeatLimit(subscription.plan, currentSeats, 1);
-  if (!seatCheck.allowed) throw new Error('Firm seat limit reached');
 
   // Get firm name for response
   const firm = await repo.getFirmById(supabase, invite.firmId);
   if (!firm) throw new Error('Firm not found');
 
-  // Link user to firm
-  await repo.setProfileFirm(supabase, userId, invite.firmId, 'member');
+  // Link user and mark invite accepted in an atomic database transaction
+  const { error } = await supabase.rpc('join_firm_transactional', {
+    p_user_id: userId,
+    p_invite_id: invite.id,
+  });
 
-  // Mark invite as accepted
-  await repo.markInviteAccepted(supabase, invite.id);
+  if (error) {
+    throw new Error(error.message);
+  }
 
   return { joined: true, firmId: invite.firmId, firmName: firm.name };
 }

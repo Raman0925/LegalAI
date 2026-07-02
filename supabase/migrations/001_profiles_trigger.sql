@@ -18,10 +18,10 @@ create index if not exists profiles_email_idx on public.profiles (email);
 alter table public.profiles enable row level security;
 
 -- Setup RLS Policies
--- Everyone is permitted to view user profiles (e.g., for user list or forum avatar references)
-create policy "Public profiles are viewable by everyone"
+-- Users can only view their own profile by default (overridden in 009 with firm scoping)
+create policy "Public profiles are viewable by self"
   on public.profiles for select
-  using ( true );
+  using ( id = auth.uid() );
 
 -- Users are only allowed to modify their own profile record
 create policy "Users can update their own profile"
