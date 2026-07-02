@@ -79,6 +79,11 @@ export function planLimit(metric: UsageMetric) {
       return;
     }
 
+    // Track usage immediately to close the TOCTOU concurrent request window.
+    // If the request fails downstream, the onResponse hook will refund/delete this record.
+    const recordId = await billingRepo.trackUsage(supabase, firmId, metric, 1);
+    request.usageRecordId = recordId;
+
     // ── 5. Attach subscription for downstream use ────────────────────────────
     request.subscription = subscription;
   };

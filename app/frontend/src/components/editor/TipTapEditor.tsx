@@ -10,6 +10,7 @@ import Highlight from '@tiptap/extension-highlight';
 import { JSONContent } from '@tiptap/react';
 import { RewriteTone, REWRITE_TONES } from '@/types/editor';
 import { Button } from '@/components/ui/button';
+import { getAuthHeaders } from '@/lib/api';
 
 interface TipTapEditorProps {
   documentId: string;
@@ -79,40 +80,41 @@ export function TipTapEditor({
     const { from } = editor.state.selection;
     const precedingText = editor.state.doc.textBetween(0, from, ' ');
 
-    const token = localStorage.getItem('token');
-    const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/suggest`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ precedingText, documentTitle: title }),
-      signal: suggestionAbortRef.current.signal,
-    });
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/suggest`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ precedingText, documentTitle: title }),
+        signal: suggestionAbortRef.current.signal,
+      });
 
-    if (!res.ok) return;
+      if (!res.ok) return;
 
-    const reader = res.body!.getReader();
-    const decoder = new TextDecoder();
-    let partialLine = '';
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let partialLine = '';
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = (partialLine + chunk).split('\n\n');
-      partialLine = lines.pop() || '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = (partialLine + chunk).split('\n\n');
+        partialLine = lines.pop() || '';
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const parsed = JSON.parse(line.slice(6).trim());
-          if (parsed.type === 'text') {
-            // Insert text at cursor as it streams
-            editor.commands.insertContent(parsed.text);
-          }
-        } catch {}
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6).trim());
+            if (parsed.type === 'text') {
+              // Insert text at cursor as it streams
+              editor.commands.insertContent(parsed.text);
+            }
+          } catch {}
+        }
       }
+    } catch (err) {
+      console.error(err);
     }
   }, [editor, documentId, title]);
 
@@ -125,42 +127,43 @@ export function TipTapEditor({
     rewriteAbortRef.current?.abort();
     rewriteAbortRef.current = new AbortController();
 
-    const token = localStorage.getItem('token');
-    const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/rewrite`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ selectedText, tone, documentTitle: title }),
-      signal: rewriteAbortRef.current.signal,
-    });
+    try {
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/rewrite`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: JSON.stringify({ selectedText, tone, documentTitle: title }),
+        signal: rewriteAbortRef.current.signal,
+      });
 
-    if (!res.ok) return;
+      if (!res.ok) return;
 
-    const reader = res.body!.getReader();
-    const decoder = new TextDecoder();
-    let partialLine = '';
+      const reader = res.body!.getReader();
+      const decoder = new TextDecoder();
+      let partialLine = '';
 
-    // Delete selection first
-    editor.commands.deleteSelection();
+      // Delete selection first
+      editor.commands.deleteSelection();
 
-    while (true) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      const chunk = decoder.decode(value, { stream: true });
-      const lines = (partialLine + chunk).split('\n\n');
-      partialLine = lines.pop() || '';
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+        const chunk = decoder.decode(value, { stream: true });
+        const lines = (partialLine + chunk).split('\n\n');
+        partialLine = lines.pop() || '';
 
-      for (const line of lines) {
-        if (!line.startsWith('data: ')) continue;
-        try {
-          const parsed = JSON.parse(line.slice(6).trim());
-          if (parsed.type === 'text') {
-            editor.commands.insertContent(parsed.text);
-          }
-        } catch {}
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          try {
+            const parsed = JSON.parse(line.slice(6).trim());
+            if (parsed.type === 'text') {
+              editor.commands.insertContent(parsed.text);
+            }
+          } catch {}
+        }
       }
+    } catch (err) {
+      console.error(err);
     }
   }, [editor, documentId, title]);
 

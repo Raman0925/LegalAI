@@ -13,9 +13,11 @@ async function dbConnectorPlugin(fastify: FastifyInstance, options: FastifyPlugi
     max: 20,
     idleTimeoutMillis: 30000,
     connectionTimeoutMillis: 2000,
-    ssl: {
-      rejectUnauthorized: false,
-    },
+    ssl: connectionString.includes('localhost') || connectionString.includes('127.0.0.1')
+      ? false
+      : {
+          rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false',
+        },
   });
 
   // Test the connection immediately on startup

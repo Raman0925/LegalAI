@@ -19,6 +19,8 @@ import {
   ExternalLink,
 } from 'lucide-react';
 
+import { getAuthHeaders } from '@/lib/api';
+
 export default function DocumentListPage() {
   const router = useRouter();
   const [documents, setDocuments] = useState<LegalDocument[]>([]);
@@ -38,9 +40,9 @@ export default function DocumentListPage() {
   const fetchDocuments = async () => {
     try {
       setLoading(true);
-      const token = localStorage.getItem('token');
+      const authHeaders = await getAuthHeaders();
       const res = await fetch('/api/proxy?path=/editor/documents', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders,
       });
       if (res.ok) {
         const data = await res.json();
@@ -55,9 +57,9 @@ export default function DocumentListPage() {
 
   const fetchMatters = async () => {
     try {
-      const token = localStorage.getItem('token');
+      const authHeaders = await getAuthHeaders();
       const res = await fetch('/api/proxy?path=/matters', {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: authHeaders,
       });
       if (res.ok) {
         const data = await res.json();
@@ -79,13 +81,10 @@ export default function DocumentListPage() {
 
     try {
       setCreating(true);
-      const token = localStorage.getItem('token');
+      const authHeaders = await getAuthHeaders();
       const res = await fetch('/api/proxy?path=/editor/documents', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           title: newTitle,
           matterId: selectedMatterId || undefined,

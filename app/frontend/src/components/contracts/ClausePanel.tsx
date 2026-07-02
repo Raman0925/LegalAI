@@ -4,6 +4,7 @@ import { useState, useRef, useEffect } from 'react';
 import { ContractAnnotation } from '@/types/contracts';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
+import { getAuthHeaders } from '@/lib/api';
 
 interface ClausePanelProps {
   contractId: string;
@@ -48,11 +49,10 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
     setStreamedText('');
 
     try {
+      const authHeaders = await getAuthHeaders();
       const response = await fetch(`/api/proxy?path=/contracts/${contractId}/ask`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           question: userMsg,
           annotationId: selectedAnnotation?.id || undefined,
@@ -70,6 +70,7 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
 
       let done = false;
       let partialLine = '';
+      let currentText = '';
 
       while (!done) {
         const { value, done: doneReading } = await reader.read();
@@ -86,11 +87,13 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
               try {
                 const parsed = JSON.parse(dataStr);
                 if (parsed.type === 'text') {
-                  setStreamedText((t) => t + parsed.text);
+                  currentText += parsed.text;
+                  setStreamedText(currentText);
                 } else if (parsed.type === 'done') {
                   // completed stream
                 } else if (parsed.type === 'error') {
-                  setStreamedText((t) => t + `\n[Error: ${parsed.error}]`);
+                  currentText += `\n[Error: ${parsed.error}]`;
+                  setStreamedText(currentText);
                 }
               } catch (e) {
                 // ignore parsing error
@@ -103,7 +106,7 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
       // Append final assistant message
       setMessages((prev) => [
         ...prev,
-        { role: 'assistant', content: streamedText || 'No response.' },
+        { role: 'assistant', content: currentText || 'No response.' },
       ]);
       setStreamedText('');
     } catch (err) {

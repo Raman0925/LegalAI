@@ -82,7 +82,10 @@ DECLARE
   v_current_seats INT;
 BEGIN
   -- If joining or changing firm
-  IF NEW.firm_id IS NOT NULL AND (OLD.firm_id IS NULL OR NEW.firm_id <> OLD.firm_id) THEN
+  IF NEW.firm_id IS NOT NULL AND (TG_OP = 'INSERT' OR OLD.firm_id IS NULL OR NEW.firm_id <> OLD.firm_id) THEN
+    -- Lock the parent firm row to serialize seat check operations for this tenant
+    PERFORM 1 FROM public.firms WHERE id = NEW.firm_id FOR UPDATE;
+
     -- Get max seats limit from subscription
     SELECT sp.max_seats INTO v_max_seats
     FROM public.firm_subscriptions fs
@@ -107,7 +110,7 @@ BEGIN
   
   RETURN NEW;
 END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
+$$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
 -- Trigger definition
 DROP TRIGGER IF EXISTS trg_check_firm_seat_limit ON public.profiles;
@@ -115,4 +118,90 @@ CREATE TRIGGER trg_check_firm_seat_limit
   BEFORE INSERT OR UPDATE OF firm_id ON public.profiles
   FOR EACH ROW
   EXECUTE FUNCTION check_firm_seat_limit();
+
+-- ─── 6. Secure Profiles SELECT Policy ───────────────────────────────────────
+CREATE OR REPLACE FUNCTION public.get_auth_user_firm_id()
+RETURNS UUID
+LANGUAGE sql
+SECURITY DEFINER SET search_path = public
+STABLE
+AS $$
+  SELECT firm_id FROM public.profiles WHERE id = auth.uid();
+$$;
+
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON public.profiles;
+DROP POLICY IF EXISTS "Profiles viewable by self and firm members" ON public.profiles;
+CREATE POLICY "Profiles viewable by self and firm members" ON public.profiles
+  FOR SELECT USING (
+    id = auth.uid()
+    OR (firm_id IS NOT NULL AND firm_id = public.get_auth_user_firm_id())
+  );
+
+-- ─── 7. Foreign Keys for Contracts & Editor Tables ─────────────────────────
+ALTER TABLE public.contracts
+  ADD CONSTRAINT fk_contracts_firm FOREIGN KEY (firm_id) REFERENCES public.firms(id) ON DELETE CASCADE;
+
+ALTER TABLE public.legal_documents
+  ADD CONSTRAINT fk_legal_documents_firm FOREIGN KEY (firm_id) REFERENCES public.firms(id) ON DELETE CASCADE;
+
+ALTER TABLE public.document_versions
+  ADD CONSTRAINT fk_document_versions_firm FOREIGN KEY (firm_id) REFERENCES public.firms(id) ON DELETE CASCADE;
+
+-- ─── 8. Replace GUC-based RLS Policies with Session-based Policies ──────────
+-- Contracts
+DROP POLICY IF EXISTS "firm_isolation_contracts" ON public.contracts;
+CREATE POLICY "firm_isolation_contracts" ON public.contracts
+  USING (firm_id = public.get_auth_user_firm_id());
+
+-- Contract Pages
+DROP POLICY IF EXISTS "firm_isolation_pages" ON public.contract_pages;
+CREATE POLICY "firm_isolation_pages" ON public.contract_pages
+  USING (firm_id = public.get_auth_user_firm_id());
+
+-- Contract Annotations
+DROP POLICY IF EXISTS "firm_isolation_annotations" ON public.contract_annotations;
+CREATE POLICY "firm_isolation_annotations" ON public.contract_annotations
+  USING (firm_id = public.get_auth_user_firm_id());
+
+-- Legal Documents (Editor)
+DROP POLICY IF EXISTS "firm_isolation_docs" ON public.legal_documents;
+CREATE POLICY "firm_isolation_docs" ON public.legal_documents
+  USING (firm_id = public.get_auth_user_firm_id());
+
+-- Document Versions (Editor)
+DROP POLICY IF EXISTS "firm_isolation_versions" ON public.document_versions;
+CREATE POLICY "firm_isolation_versions" ON public.document_versions
+  USING (firm_id = public.get_auth_user_firm_id());
+
+-- Subscriptions (Billing)
+DROP POLICY IF EXISTS "firm_isolation_subs" ON public.firm_subscriptions;
+CREATE POLICY "firm_isolation_subs" ON public.firm_subscriptions
+  USING (firm_id = public.get_auth_user_firm_id());
+
+-- Usage Records (Billing)
+DROP POLICY IF EXISTS "firm_isolation_usage" ON public.usage_records;
+CREATE POLICY "firm_isolation_usage" ON public.usage_records
+  USING (firm_id = public.get_auth_user_firm_id());
+
+-- ─── 9. Scoping Matters & Related Tables by Firm ID ─────────────────────────
+DROP POLICY IF EXISTS "Users manage own matters" ON public.matters;
+DROP POLICY IF EXISTS "Firm level isolation on matters" ON public.matters;
+CREATE POLICY "Firm level isolation on matters" ON public.matters
+  FOR ALL USING (firm_id = public.get_auth_user_firm_id());
+
+DROP POLICY IF EXISTS "Users manage own matter_documents" ON public.matter_documents;
+DROP POLICY IF EXISTS "Firm level isolation on matter_documents" ON public.matter_documents;
+CREATE POLICY "Firm level isolation on matter_documents" ON public.matter_documents
+  FOR ALL USING (matter_id IN (SELECT id FROM public.matters WHERE firm_id = public.get_auth_user_firm_id()));
+
+DROP POLICY IF EXISTS "Users manage own matter_clauses" ON public.matter_clauses;
+DROP POLICY IF EXISTS "Firm level isolation on matter_clauses" ON public.matter_clauses;
+CREATE POLICY "Firm level isolation on matter_clauses" ON public.matter_clauses
+  FOR ALL USING (matter_id IN (SELECT id FROM public.matters WHERE firm_id = public.get_auth_user_firm_id()));
+
+DROP POLICY IF EXISTS "Users manage own matter_drafts" ON public.matter_drafts;
+DROP POLICY IF EXISTS "Firm level isolation on matter_drafts" ON public.matter_drafts;
+CREATE POLICY "Firm level isolation on matter_drafts" ON public.matter_drafts
+  FOR ALL USING (matter_id IN (SELECT id FROM public.matters WHERE firm_id = public.get_auth_user_firm_id()));
+
 

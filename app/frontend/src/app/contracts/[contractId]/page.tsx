@@ -9,6 +9,7 @@ import { ClausePanel } from '@/components/contracts/ClausePanel';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ArrowLeft, Download, FileDown, RefreshCw, AlertTriangle } from 'lucide-react';
+import { getAuthHeaders } from '@/lib/api';
 
 interface ContractPageProps {
   params: Promise<{ contractId: string }>;
@@ -31,26 +32,35 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [analysisMessage, setAnalysisMessage] = useState('');
-
   const hasTriggeredAnalysis = useRef(false);
 
   // Load contract info & initial annotations
-  const loadContractData = async () => {
+  const loadContractData = async (signal: AbortSignal) => {
     try {
       setLoading(true);
       setError(null);
 
+      const authHeaders = await getAuthHeaders();
+
       // Get contract details (with signed URL)
-      const res = await fetch(`/api/proxy?path=/contracts/${contractId}`);
+      const res = await fetch(`/api/proxy?path=/contracts/${contractId}`, {
+        headers: authHeaders,
+        signal,
+      });
       if (!res.ok) throw new Error('Contract not found or session expired');
       const data = await res.json();
+      if (signal.aborted) return;
       const contractData: ContractWithUrl = data.contract;
       setContract(contractData);
 
       // Get annotations
-      const annRes = await fetch(`/api/proxy?path=/contracts/${contractId}/annotations`);
+      const annRes = await fetch(`/api/proxy?path=/contracts/${contractId}/annotations`, {
+        headers: authHeaders,
+        signal,
+      });
       if (annRes.ok) {
         const annData = await annRes.json();
+        if (signal.aborted) return;
         setAnnotations(annData.annotations || []);
       }
 
@@ -59,22 +69,27 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
       const triggerQuery = searchParams.get('start_analysis') === 'true';
 
       if ((triggerQuery || contractData.status === 'uploaded' || contractData.status === 'processing') && !hasTriggeredAnalysis.current) {
-        startAnalysis();
+        startAnalysis(signal);
       }
-    } catch (err) {
+    } catch (err: any) {
+      if (err.name === 'AbortError') return;
       console.error(err);
       setError('Could not load contract details.');
     } finally {
-      setLoading(false);
+      if (!signal.aborted) setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadContractData();
+    const controller = new AbortController();
+    loadContractData(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [contractId]);
 
   // SSE analysis stream
-  const startAnalysis = async () => {
+  const startAnalysis = async (signal?: AbortSignal) => {
     if (analyzing) return;
     setAnalyzing(true);
     setAnalysisProgress(5);
@@ -88,7 +103,12 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
     const ssePath = `/api/proxy?path=/contracts/${contractId}/analyze`;
     
     try {
-      const response = await fetch(ssePath, { method: 'POST' });
+      const authHeaders = await getAuthHeaders();
+      const response = await fetch(ssePath, {
+        method: 'POST',
+        headers: authHeaders,
+        signal,
+      });
       if (!response.ok) throw new Error('Failed to connect to analysis stream');
 
       const reader = response.body?.getReader();
@@ -98,7 +118,7 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
       let done = false;
       let partialLine = '';
 
-      while (!done) {
+      while (!done && (!signal || !signal.aborted)) {
         const { value, done: doneReading } = await reader.read();
         done = doneReading;
         if (value) {
@@ -125,10 +145,16 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
                   setAnalysisProgress(100);
                   setAnalysisMessage('Complete!');
                   // Refresh contract info to update status to ready
-                  const cRes = await fetch(`/api/proxy?path=/contracts/${contractId}`);
+                  const latestAuthHeaders = await getAuthHeaders();
+                  const cRes = await fetch(`/api/proxy?path=/contracts/${contractId}`, {
+                    headers: latestAuthHeaders,
+                    signal,
+                  });
                   if (cRes.ok) {
                     const cData = await cRes.json();
-                    setContract(cData.contract);
+                    if (!signal || !signal.aborted) {
+                      setContract(cData.contract);
+                    }
                   }
                 } else if (parsed.type === 'error') {
                   throw new Error(parsed.error || 'AI analysis failed');
@@ -141,6 +167,7 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
         }
       }
     } catch (err: any) {
+      if (err.name === 'AbortError') return;
       console.error(err);
       setError(err.message || 'AI analysis failed or stream disconnected.');
       setAnalyzing(false);
@@ -157,8 +184,11 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
   // Export report
   const handleExport = async (format: 'pdf' | 'docx') => {
     try {
+      const authHeaders = await getAuthHeaders();
       const exportUrl = `/api/proxy?path=/contracts/${contractId}/export?format=${format}`;
-      const response = await fetch(exportUrl);
+      const response = await fetch(exportUrl, {
+        headers: authHeaders,
+      });
       if (!response.ok) throw new Error('Export failed');
 
       const blob = await response.blob();
@@ -248,7 +278,7 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
           {contract?.status !== 'ready' && !analyzing && (
             <Button
               size="sm"
-              onClick={startAnalysis}
+              onClick={() => startAnalysis()}
               className="h-8 px-3 text-xs font-semibold bg-blue-600 hover:bg-blue-700 text-white flex gap-1.5 items-center"
             >
               <RefreshCw className="h-3 w-3" /> Run AI Analysis

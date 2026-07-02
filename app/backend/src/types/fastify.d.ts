@@ -26,5 +26,8 @@ declare module 'fastify' {
 
     // Attached by @fastify/raw-body plugin — used for webhook signature verification
     rawBody?: string;
+
+    // Track usage record ID for plan-limit TOCTOU race resolution
+    usageRecordId?: string | null;
   }
 }

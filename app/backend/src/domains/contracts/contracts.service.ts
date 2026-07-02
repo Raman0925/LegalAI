@@ -65,18 +65,15 @@ export async function uploadContract(
     throw new Error('File upload failed');
   }
 
-  // Get public URL base (not signed — signing happens at request time)
-  const { data: urlData } = supabase.storage
-    .from('contracts')
-    .getPublicUrl(storagePath);
+  const secureStorageUrl = `private://${storagePath}`;
 
   // Update contract with storage path
   await supabase
     .from('contracts')
-    .update({ storage_path: storagePath, storage_url: urlData.publicUrl })
+    .update({ storage_path: storagePath, storage_url: secureStorageUrl })
     .eq('id', contract.id);
 
-  return { ...contract, storagePath, storageUrl: urlData.publicUrl };
+  return { ...contract, storagePath, storageUrl: secureStorageUrl };
 }
 
 /**

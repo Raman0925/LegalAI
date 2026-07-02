@@ -15,6 +15,8 @@ interface VersionHistoryProps {
   onClose?: () => void;
 }
 
+import { getAuthHeaders } from '@/lib/api';
+
 export function VersionHistory({
   documentId,
   wordCount,
@@ -33,7 +35,10 @@ export function VersionHistory({
   const fetchVersions = async () => {
     try {
       setLoadingList(true);
-      const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/versions`);
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/versions`, {
+        headers: authHeaders,
+      });
       if (res.ok) {
         const data = await res.json();
         setVersions(data.versions || []);
@@ -55,13 +60,10 @@ export function VersionHistory({
     
     try {
       setSavingVersion(true);
-      const token = localStorage.getItem('token');
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/versions`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders,
         body: JSON.stringify({
           content: editorContent,
           wordCount,
@@ -83,11 +85,9 @@ export function VersionHistory({
   const handleRestore = async (versionId: string) => {
     try {
       setLoadingRestore(versionId);
-      const token = localStorage.getItem('token');
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/versions/${versionId}`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders,
       });
 
       if (res.ok) {

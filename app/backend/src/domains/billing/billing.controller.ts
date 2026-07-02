@@ -146,13 +146,14 @@ export async function billingController(app: FastifyInstance) {
     }
 
     const payload = request.body as {
+      id?: string;
       event: string;
       created_at: number;
       [key: string]: unknown;
     };
 
-    // Stable idempotency key: event type + unix timestamp
-    const eventId = `${payload.event}_${payload.created_at}`;
+    // Stable idempotency key: use Razorpay's actual event ID if present
+    const eventId = payload.id || `${payload.event}_${payload.created_at}`;
 
     // Acknowledge immediately — Razorpay retries if we take >5s
     reply.status(200).send({ received: true });

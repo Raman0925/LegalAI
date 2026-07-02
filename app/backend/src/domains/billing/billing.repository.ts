@@ -126,17 +126,38 @@ export async function trackUsage(
   firmId: string,
   metric: UsageMetric,
   quantity = 1
-): Promise<void> {
+): Promise<string | null> {
   // INSERT only — never UPDATE usage rows (audit trail)
-  const { error } = await supabase.from('usage_records').insert({
-    firm_id: firmId,
-    usage_date: new Date().toISOString().slice(0, 10),
-    metric,
-    quantity,
-  });
+  const { data, error } = await supabase
+    .from('usage_records')
+    .insert({
+      firm_id: firmId,
+      usage_date: new Date().toISOString().slice(0, 10),
+      metric,
+      quantity,
+    })
+    .select('id')
+    .single();
 
-  if (error) console.error('Usage tracking failed (non-fatal):', error.message);
-  // Non-fatal — don't throw, just log
+  if (error) {
+    console.error('Usage tracking failed (non-fatal):', error.message);
+    return null;
+  }
+  return data?.id || null;
+}
+
+export async function deleteUsageRecord(
+  supabase: SupabaseClient,
+  id: string
+): Promise<void> {
+  const { error } = await supabase
+    .from('usage_records')
+    .delete()
+    .eq('id', id);
+
+  if (error) {
+    console.error(`Failed to delete usage record ${id}:`, error.message);
+  }
 }
 
 export async function getDailyUsage(

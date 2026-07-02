@@ -3,7 +3,7 @@ import { ResearchSession, ResearchMessage } from '@/types/research';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
-async function getAuthHeaders(): Promise<HeadersInit> {
+export async function getAuthHeaders(): Promise<HeadersInit> {
   const supabase = createBrowserClient();
   const {
     data: { session },
@@ -13,6 +13,18 @@ async function getAuthHeaders(): Promise<HeadersInit> {
     'Content-Type': 'application/json',
     Authorization: `Bearer ${session.access_token}`,
   };
+}
+
+export async function getAuthToken(): Promise<string | null> {
+  try {
+    const supabase = createBrowserClient();
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    return session?.access_token ?? null;
+  } catch {
+    return null;
+  }
 }
 
 async function get<T>(path: string): Promise<T> {

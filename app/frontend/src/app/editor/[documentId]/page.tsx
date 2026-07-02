@@ -11,6 +11,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, Download, History, ListTodo, Loader2 } from 'lucide-react';
 
+import { getAuthHeaders } from '@/lib/api';
+
 type PanelView = 'none' | 'versions' | 'clauses';
 
 export default function EditorDetailPage() {
@@ -25,40 +27,44 @@ export default function EditorDetailPage() {
 
   // Fetch document details on mount
   useEffect(() => {
-    const fetchDocument = async () => {
+    const controller = new AbortController();
+    const fetchDocument = async (signal: AbortSignal) => {
       try {
-        const token = localStorage.getItem('token');
+        const authHeaders = await getAuthHeaders();
         const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: authHeaders,
+          signal,
         });
         if (res.ok) {
           const data = await res.json();
+          if (signal.aborted) return;
           setLegalDoc(data.document);
           setWordCount(data.document.wordCount || 0);
         } else {
-          router.push('/editor');
+          if (!signal.aborted) router.push('/editor');
         }
-      } catch (err) {
+      } catch (err: any) {
+        if (err.name === 'AbortError') return;
         console.error(err);
-        router.push('/editor');
+        if (!signal.aborted) router.push('/editor');
       }
     };
-    fetchDocument();
+    fetchDocument(controller.signal);
+    return () => {
+      controller.abort();
+    };
   }, [documentId, router]);
 
   const handleSave = async (content: JSONContent, words: number) => {
     setSaveStatus('saving');
     saveCountRef.current += 1;
     try {
-      const token = localStorage.getItem('token');
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(
         `/api/proxy?path=/editor/documents/${documentId}&saveCount=${saveCountRef.current}`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: authHeaders,
           body: JSON.stringify({
             content,
             wordCount: words,
@@ -84,15 +90,12 @@ export default function EditorDetailPage() {
     setLegalDoc({ ...legalDoc, status: newStatus });
     setSaveStatus('saving');
     try {
-      const token = localStorage.getItem('token');
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(
         `/api/proxy?path=/editor/documents/${documentId}&saveCount=${saveCountRef.current}`,
         {
           method: 'PUT',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
-          },
+          headers: authHeaders,
           body: JSON.stringify({
             content: activeEditor ? activeEditor.getJSON() : legalDoc.content,
             wordCount,
@@ -114,13 +117,10 @@ export default function EditorDetailPage() {
 
   const handleExport = async (format: 'pdf' | 'docx') => {
     try {
-      const token = localStorage.getItem('token');
+      const authHeaders = await getAuthHeaders();
       const res = await fetch(`/api/proxy?path=/editor/documents/${documentId}/export`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders,
         body: JSON.stringify({ format }),
       });
 

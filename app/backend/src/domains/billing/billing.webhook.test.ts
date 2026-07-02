@@ -42,3 +42,74 @@ describe('verifyWebhookSignature', () => {
     expect(verifyWebhookSignature(body, '')).toBe(false);
   });
 });
+
+vi.mock('./billing.repository.js', () => ({
+  saveWebhookEvent: vi.fn(),
+  getSubscriptionByRazorpayId: vi.fn(),
+  updateSubscriptionStatus: vi.fn(),
+  markWebhookProcessed: vi.fn(),
+}));
+
+const { processWebhookEvent } = await import('./billing.webhook.js');
+const repo = await import('./billing.repository.js');
+
+describe('processWebhookEvent', () => {
+  const mockSupabase = {} as any;
+
+  it('skips processing if event is already saved (not new)', async () => {
+    vi.mocked(repo.saveWebhookEvent).mockResolvedValueOnce(false); // already exists
+
+    const payload = {
+      event: 'subscription.activated',
+      payload: {},
+      created_at: 12345,
+    } as any;
+
+    await processWebhookEvent(mockSupabase, 'evt-1', payload);
+
+    expect(repo.saveWebhookEvent).toHaveBeenCalledWith(mockSupabase, {
+      eventId: 'evt-1',
+      eventType: 'subscription.activated',
+      payload,
+    });
+    expect(repo.getSubscriptionByRazorpayId).not.toHaveBeenCalled();
+  });
+
+  it('processes subscription.activated successfully', async () => {
+    vi.mocked(repo.saveWebhookEvent).mockResolvedValueOnce(true); // new event
+    vi.mocked(repo.getSubscriptionByRazorpayId).mockResolvedValueOnce({
+      id: 'sub-1',
+      firmId: 'firm-123',
+      planId: 'plan-1',
+      status: 'trial',
+      seatCount: 1,
+    } as any);
+
+    const payload = {
+      event: 'subscription.activated',
+      payload: {
+        subscription: {
+          entity: {
+            id: 'razor-sub-id',
+            customer_id: 'cust-id',
+            current_start: 1700000000,
+            current_end: 1700086400,
+          },
+        },
+      },
+      created_at: 1700000000,
+    } as any;
+
+    await processWebhookEvent(mockSupabase, 'evt-2', payload);
+
+    expect(repo.getSubscriptionByRazorpayId).toHaveBeenCalledWith(mockSupabase, 'razor-sub-id');
+    expect(repo.updateSubscriptionStatus).toHaveBeenCalledWith(mockSupabase, 'firm-123', {
+      status: 'active',
+      razorpayCustomerId: 'cust-id',
+      currentPeriodStart: new Date(1700000000 * 1000),
+      currentPeriodEnd: new Date(1700086400 * 1000),
+    });
+    expect(repo.markWebhookProcessed).toHaveBeenCalledWith(mockSupabase, 'evt-2');
+  });
+});
+

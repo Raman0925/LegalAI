@@ -8,6 +8,8 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { FileText, UploadCloud, AlertCircle, Loader2, ArrowRight } from 'lucide-react';
 
+import { getAuthHeaders } from '@/lib/api';
+
 export default function ContractsPage() {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +18,10 @@ export default function ContractsPage() {
 
   const fetchContracts = useCallback(async () => {
     try {
-      const response = await fetch('/api/proxy?path=/contracts');
+      const authHeaders = await getAuthHeaders();
+      const response = await fetch('/api/proxy?path=/contracts', {
+        headers: authHeaders,
+      });
       if (!response.ok) throw new Error('Failed to fetch contracts');
       const data = await response.json();
       setContracts(data.contracts || []);
@@ -44,8 +49,13 @@ export default function ContractsPage() {
     formData.append('file', file);
 
     try {
+      const authHeaders = await getAuthHeaders();
+      const headers = { ...authHeaders } as Record<string, string>;
+      delete headers['Content-Type'];
+
       const response = await fetch('/api/proxy?path=/contracts/upload', {
         method: 'POST',
+        headers,
         body: formData,
       });
 

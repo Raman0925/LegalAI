@@ -1,28 +1,20 @@
 import { FastifyRequest, FastifyReply } from 'fastify';
 import { SupabaseClient } from '@supabase/supabase-js';
-import { trackUsage } from '#domains/billing/billing.repository.js';
+import { deleteUsageRecord } from '#domains/billing/billing.repository.js';
 import { UsageMetric } from '#domains/billing/billing.types.js';
 
 /**
  * trackAfterResponse — Fastify onResponse hook factory
  *
- * Increments a usage counter AFTER the response has been sent.
- * This means it never slows down the user's request — it runs
- * entirely in the background.
- *
- * IMPORTANT: Wire this as onResponse, NOT preHandler.
- * onResponse fires after the HTTP response is committed to the client.
+ * Checks if the request failed (statusCode >= 400), and if so,
+ * deletes/refunds the usage record created in the preHandler to ensure
+ * exact count tracking without TOCTOU race conditions.
  *
  * Usage in a route:
  *   app.post('/chat', {
  *     preHandler: [authenticate, planLimit('ai_calls')],
  *     onResponse: [trackAfterResponse('ai_calls')],
  *   }, handler)
- *
- * What it does:
- *   1. Skips tracking on error responses (status >= 400)
- *   2. Fires trackUsage as a non-blocking promise
- *   3. Logs errors silently — usage tracking never crashes the app
  */
 export function trackAfterResponse(metric: UsageMetric, quantity = 1) {
   return async function trackUsageAfterResponse(
@@ -30,22 +22,18 @@ export function trackAfterResponse(metric: UsageMetric, quantity = 1) {
     reply: FastifyReply
   ): Promise<void> {
 
-    // ── Only track successful responses ───────────────────────────────────────
-    // If the route returned 4xx or 5xx, the action didn't succeed — don't count it.
-    if (reply.statusCode >= 400) return;
+    // If the request was successful, keep the tracked usage
+    if (reply.statusCode < 400) return;
 
-    const user = request.user;
-    if (!user) return;
+    // If there is no usage record ID to refund, do nothing
+    const { usageRecordId } = request;
+    if (!usageRecordId) return;
 
-    const firmId = user.firmId;
     const supabase = request.server.supabase as SupabaseClient;
 
-    // ── Fire and forget — non-blocking ────────────────────────────────────────
-    // trackUsage inserts a row to usage_records. We don't await it
-    // so the response is already sent before this DB write begins.
-    trackUsage(supabase, firmId, metric, quantity).catch(err => {
-      // Log the error but never re-throw — usage tracking is non-critical
-      console.error(`[usage-tracker] Failed to track ${metric} for firm ${firmId}:`, err);
+    // Refund/delete the record on failure
+    deleteUsageRecord(supabase, usageRecordId).catch(err => {
+      console.error(`[usage-tracker] Failed to refund usage record ${usageRecordId}:`, err);
     });
   };
 }

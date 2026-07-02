@@ -12,6 +12,8 @@ interface ClauseLibraryProps {
   onClose?: () => void;
 }
 
+import { getAuthHeaders } from '@/lib/api';
+
 export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
   const [contracts, setContracts] = useState<Contract[]>([]);
   const [selectedContract, setSelectedContract] = useState<Contract | null>(null);
@@ -26,7 +28,10 @@ export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
     const fetchContracts = async () => {
       try {
         setLoadingContracts(true);
-        const res = await fetch('/api/proxy?path=/contracts');
+        const authHeaders = await getAuthHeaders();
+        const res = await fetch('/api/proxy?path=/contracts', {
+          headers: authHeaders,
+        });
         if (res.ok) {
           const data = await res.json();
           setContracts(data.contracts || []);
@@ -46,7 +51,10 @@ export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
     setFilterType('all');
     try {
       setLoadingAnnotations(true);
-      const res = await fetch(`/api/proxy?path=/contracts/${contract.id}/annotations`);
+      const authHeaders = await getAuthHeaders();
+      const res = await fetch(`/api/proxy?path=/contracts/${contract.id}/annotations`, {
+        headers: authHeaders,
+      });
       if (res.ok) {
         const data = await res.json();
         setAnnotations(data.annotations || []);
