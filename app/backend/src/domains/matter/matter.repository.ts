@@ -248,13 +248,13 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     }
 
     if (setClause.length === 0) {
-      return findById(id, userId);
+      return findById(id, firmId);
     }
 
     const query = `
       UPDATE matters
       SET ${setClause.join(', ')}, updated_at = now()
-      WHERE id = $1 AND user_id = $2
+      WHERE id = $1 AND firm_id = $2
       RETURNING *
     `;
 
@@ -262,10 +262,10 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     return result.rows[0] ? mapMatterRow(result.rows[0]) : null;
   }
 
-  async function deleteMatter(id: string, userId: string): Promise<boolean> {
-    const result = await pgPool.query(`DELETE FROM matters WHERE id = $1 AND user_id = $2`, [
+  async function deleteMatter(id: string, firmId: string): Promise<boolean> {
+    const result = await pgPool.query(`DELETE FROM matters WHERE id = $1 AND firm_id = $2`, [
       id,
-      userId,
+      firmId,
     ]);
     return (result.rowCount ?? 0) > 0;
   }
@@ -359,8 +359,8 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async function getDetails(id: string, userId: string): Promise<MatterWithDetails | null> {
-    const matter = await findById(id, userId);
+  async function getDetails(id: string, firmId: string): Promise<MatterWithDetails | null> {
+    const matter = await findById(id, firmId);
     if (!matter) return null;
 
     // Fetch attached documents
@@ -406,7 +406,7 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
   return {
     create,
     findById,
-    listByUser,
+    listByFirm,
     update,
     delete: deleteMatter,
     attachDocument,

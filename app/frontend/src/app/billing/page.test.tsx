@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import BillingPage from './page';
 
 vi.mock('next/navigation', () => ({
@@ -37,8 +37,17 @@ vi.mock('@/lib/api', () => ({
 }));
 
 describe('BillingPage', () => {
-  it('renders loading state initially', () => {
+  it('renders loading state initially and then shows usage details', async () => {
     render(<BillingPage />);
     expect(screen.getByText(/loading billing/i)).toBeInTheDocument();
+
+    // Wait for the billing page to load
+    await waitFor(() => {
+      expect(screen.queryByText(/loading billing/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Billing & Usage')).toBeInTheDocument();
+    expect(screen.getByText('Starter plan')).toBeInTheDocument();
+    expect(screen.getByText('10 / 50')).toBeInTheDocument();
   });
 });

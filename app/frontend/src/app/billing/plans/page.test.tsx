@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import PlansPage from './page';
 
 vi.mock('@/lib/api', () => ({
@@ -14,13 +14,23 @@ vi.mock('@/lib/api', () => ({
       getSubscription: vi.fn().mockResolvedValue({
         subscription: { plan: { name: 'starter' } },
       }),
+      upgrade: vi.fn(),
     },
   },
 }));
 
 describe('PlansPage', () => {
-  it('renders loading state initially', () => {
+  it('renders loading state initially and then shows plans', async () => {
     render(<PlansPage />);
     expect(screen.getByText(/loading plans/i)).toBeInTheDocument();
+
+    // Wait for the loading state to disappear
+    await waitFor(() => {
+      expect(screen.queryByText(/loading plans/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Choose Your Plan')).toBeInTheDocument();
+    expect(screen.getByText('Starter')).toBeInTheDocument();
+    expect(screen.getByText('Growth')).toBeInTheDocument();
   });
 });

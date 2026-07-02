@@ -24,6 +24,16 @@ ALTER TABLE public.profiles
 -- Index for fast firm member lookups
 CREATE INDEX IF NOT EXISTS idx_profiles_firm ON public.profiles(firm_id);
 
+-- ─── Add firm_id to documents and matters ───────────────────────────────────
+ALTER TABLE public.documents
+  ADD COLUMN IF NOT EXISTS firm_id UUID REFERENCES firms(id) ON DELETE SET NULL;
+
+ALTER TABLE public.matters
+  ADD COLUMN IF NOT EXISTS firm_id UUID REFERENCES firms(id) ON DELETE SET NULL;
+
+CREATE INDEX IF NOT EXISTS idx_documents_firm ON public.documents(firm_id);
+CREATE INDEX IF NOT EXISTS idx_matters_firm ON public.matters(firm_id);
+
 -- ─── 3. firm_invites table ───────────────────────────────────────────────────
 -- Tracks pending invitations sent to team members.
 -- token is a signed JWT with firm_id + invited email.
@@ -63,3 +73,46 @@ CREATE POLICY "invite_read_own_firm" ON firm_invites
       WHERE id = auth.uid()
     )
   );
+
+-- ─── 5. Seat Limit Trigger for Race Condition Defense ───────────────────────
+CREATE OR REPLACE FUNCTION check_firm_seat_limit()
+RETURNS TRIGGER AS $$
+DECLARE
+  v_max_seats INT;
+  v_current_seats INT;
+BEGIN
+  -- If joining or changing firm
+  IF NEW.firm_id IS NOT NULL AND (OLD.firm_id IS NULL OR NEW.firm_id <> OLD.firm_id) THEN
+    -- Get max seats limit from subscription
+    SELECT sp.max_seats INTO v_max_seats
+    FROM public.firm_subscriptions fs
+    JOIN public.subscription_plans sp ON fs.plan_id = sp.id
+    WHERE fs.firm_id = NEW.firm_id;
+
+    -- If no subscription found, assume Starter/default limit of 3
+    IF v_max_seats IS NULL THEN
+      v_max_seats := 3;
+    END IF;
+
+    -- Count active profiles belonging to this firm (excluding the one joining/being updated)
+    SELECT COUNT(*) INTO v_current_seats
+    FROM public.profiles
+    WHERE firm_id = NEW.firm_id AND id <> NEW.id;
+
+    -- If adding this user would exceed max seats, reject
+    IF v_current_seats + 1 > v_max_seats THEN
+      RAISE EXCEPTION 'Firm seat limit of % reached', v_max_seats;
+    END IF;
+  END IF;
+  
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger definition
+DROP TRIGGER IF EXISTS trg_check_firm_seat_limit ON public.profiles;
+CREATE TRIGGER trg_check_firm_seat_limit
+  BEFORE INSERT OR UPDATE OF firm_id ON public.profiles
+  FOR EACH ROW
+  EXECUTE FUNCTION check_firm_seat_limit();
+

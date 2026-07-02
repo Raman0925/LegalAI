@@ -47,6 +47,7 @@ export default async function matterController(
     ) => {
       const result = await matterService.createMatter({
         userId: request.user.id,
+        firmId: request.user.firmId,
         ...request.body,
       });
       return reply.code(201).send(result);
@@ -67,7 +68,7 @@ export default async function matterController(
       },
     },
     async (request: FastifyRequest) => {
-      return matterService.listMatters(request.user.id);
+      return matterService.listMatters(request.user.firmId);
     },
   );
 
@@ -92,7 +93,7 @@ export default async function matterController(
       },
     },
     async (request: FastifyRequest<{ Params: { id: string } }>) => {
-      return matterService.getMatter(request.params.id, request.user.id);
+      return matterService.getMatter(request.params.id, request.user.firmId);
     },
   );
 
@@ -129,7 +130,7 @@ export default async function matterController(
         };
       }>,
     ) => {
-      return matterService.updateMatter(request.params.id, request.user.id, request.body);
+      return matterService.updateMatter(request.params.id, request.user.firmId, request.body);
     },
   );
 
@@ -154,7 +155,7 @@ export default async function matterController(
       },
     },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-      await matterService.deleteMatter(request.params.id, request.user.id);
+      await matterService.deleteMatter(request.params.id, request.user.firmId);
       return reply.code(204).send();
     },
   );
@@ -193,7 +194,7 @@ export default async function matterController(
       await matterService.attachDocument(
         request.params.id,
         request.body.documentId,
-        request.user.id,
+        request.user.firmId,
       );
       return reply.code(200).send({ success: true });
     },
@@ -226,7 +227,7 @@ export default async function matterController(
       }>,
       reply: FastifyReply,
     ) => {
-      await matterService.detachDocument(request.params.id, request.params.docId, request.user.id);
+      await matterService.detachDocument(request.params.id, request.params.docId, request.user.firmId);
       return reply.code(204).send();
     },
   );
@@ -252,7 +253,7 @@ export default async function matterController(
       },
     },
     async (request: FastifyRequest<{ Params: { id: string } }>) => {
-      return matterService.extractClauses(request.params.id, request.user.id);
+      return matterService.extractClauses(request.params.id, request.user.firmId);
     },
   );
 
@@ -290,7 +291,7 @@ export default async function matterController(
     ) => {
       const result = await matterService.generateDraft(
         request.params.id,
-        request.user.id,
+        request.user.firmId,
         request.body.draftType,
         request.body.instructions,
         request.body.title,
@@ -326,7 +327,7 @@ export default async function matterController(
       }>,
       reply: FastifyReply,
     ) => {
-      await matterService.deleteDraft(request.params.id, request.params.draftId, request.user.id);
+      await matterService.deleteDraft(request.params.id, request.params.draftId, request.user.firmId);
       return reply.code(204).send();
     },
   );
@@ -349,7 +350,7 @@ export default async function matterController(
       },
     },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-      const result = await matterService.exportMatter(request.params.id, request.user.id, 'pdf');
+      const result = await matterService.exportMatter(request.params.id, request.user.firmId, 'pdf');
       return reply
         .header('Content-Type', result.mimeType)
         .header('Content-Disposition', `attachment; filename="matter-${request.params.id}.pdf"`)
@@ -375,7 +376,7 @@ export default async function matterController(
       },
     },
     async (request: FastifyRequest<{ Params: { id: string } }>, reply: FastifyReply) => {
-      const result = await matterService.exportMatter(request.params.id, request.user.id, 'docx');
+      const result = await matterService.exportMatter(request.params.id, request.user.firmId, 'docx');
       return reply
         .header('Content-Type', result.mimeType)
         .header('Content-Disposition', `attachment; filename="matter-${request.params.id}.docx"`)

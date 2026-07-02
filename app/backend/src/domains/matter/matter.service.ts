@@ -1,4 +1,5 @@
 import pg from 'pg';
+import { FastifyError } from 'fastify';
 import { z } from 'zod';
 import { PDFDocument, StandardFonts, rgb } from 'pdf-lib';
 import { Document as DocxDocument, Paragraph, TextRun, Packer, HeadingLevel } from 'docx';
@@ -50,17 +51,18 @@ const provider = createAnthropicProvider(anthropicApiKey);
 export interface MatterService {
   createMatter(params: {
     userId: string;
+    firmId: string;
     title: string;
     clientName: string | null;
     matterType: MatterType;
     description: string | null;
     status?: MatterStatus;
   }): Promise<MatterRecord>;
-  listMatters(userId: string): Promise<MatterRecord[]>;
-  getMatter(id: string, userId: string): Promise<MatterWithDetails>;
+  listMatters(firmId: string): Promise<MatterRecord[]>;
+  getMatter(id: string, firmId: string): Promise<MatterWithDetails>;
   updateMatter(
     id: string,
-    userId: string,
+    firmId: string,
     params: {
       title?: string;
       clientName?: string | null;
@@ -69,21 +71,21 @@ export interface MatterService {
       description?: string | null;
     },
   ): Promise<MatterRecord>;
-  deleteMatter(id: string, userId: string): Promise<void>;
-  attachDocument(matterId: string, documentId: string, userId: string): Promise<void>;
-  detachDocument(matterId: string, documentId: string, userId: string): Promise<void>;
-  extractClauses(matterId: string, userId: string): Promise<MatterClause[]>;
+  deleteMatter(id: string, firmId: string): Promise<void>;
+  attachDocument(matterId: string, documentId: string, firmId: string): Promise<void>;
+  detachDocument(matterId: string, documentId: string, firmId: string): Promise<void>;
+  extractClauses(matterId: string, firmId: string): Promise<MatterClause[]>;
   generateDraft(
     matterId: string,
-    userId: string,
+    firmId: string,
     draftType: DraftType,
     instructions: string,
     title: string,
   ): Promise<MatterDraft>;
-  deleteDraft(matterId: string, draftId: string, userId: string): Promise<void>;
+  deleteDraft(matterId: string, draftId: string, firmId: string): Promise<void>;
   exportMatter(
     matterId: string,
-    userId: string,
+    firmId: string,
     format: 'pdf' | 'docx',
   ): Promise<{ buffer: Buffer; mimeType: string }>;
 }
@@ -94,6 +96,7 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
 
   async function createMatter(params: {
     userId: string;
+    firmId: string;
     title: string;
     clientName: string | null;
     matterType: MatterType;
@@ -103,14 +106,14 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
     return repository.create(params);
   }
 
-  async function listMatters(userId: string): Promise<MatterRecord[]> {
-    return repository.listByUser(userId);
+  async function listMatters(firmId: string): Promise<MatterRecord[]> {
+    return repository.listByFirm(firmId);
   }
 
-  async function getMatter(id: string, userId: string): Promise<MatterWithDetails> {
-    const details = await repository.getDetails(id, userId);
+  async function getMatter(id: string, firmId: string): Promise<MatterWithDetails> {
+    const details = await repository.getDetails(id, firmId);
     if (!details) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
@@ -119,7 +122,7 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
 
   async function updateMatter(
     id: string,
-    userId: string,
+    firmId: string,
     params: {
       title?: string;
       clientName?: string | null;
@@ -128,19 +131,19 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
       description?: string | null;
     },
   ): Promise<MatterRecord> {
-    const result = await repository.update(id, userId, params);
+    const result = await repository.update(id, firmId, params);
     if (!result) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
     return result;
   }
 
-  async function deleteMatter(id: string, userId: string): Promise<void> {
-    const success = await repository.delete(id, userId);
+  async function deleteMatter(id: string, firmId: string): Promise<void> {
+    const success = await repository.delete(id, firmId);
     if (!success) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
@@ -149,19 +152,19 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
   async function attachDocument(
     matterId: string,
     documentId: string,
-    userId: string,
+    firmId: string,
   ): Promise<void> {
-    // Verify user owns both matter and document
-    const matter = await repository.findById(matterId, userId);
+    // Verify user owns both matter and document within the firm
+    const matter = await repository.findById(matterId, firmId);
     if (!matter) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
 
-    const document = await documentRepository.findById(documentId, userId);
+    const document = await documentRepository.findById(documentId, firmId);
     if (!document) {
-      const error = new Error('Document not found') as any;
+      const error = new Error('Document not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
@@ -172,12 +175,12 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
   async function detachDocument(
     matterId: string,
     documentId: string,
-    userId: string,
+    firmId: string,
   ): Promise<void> {
     // Verify user owns matter
-    const matter = await repository.findById(matterId, userId);
+    const matter = await repository.findById(matterId, firmId);
     if (!matter) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
@@ -185,15 +188,15 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
     await repository.detachDocument(matterId, documentId);
   }
 
-  async function extractClauses(matterId: string, userId: string): Promise<MatterClause[]> {
-    const matter = await repository.findById(matterId, userId);
+  async function extractClauses(matterId: string, firmId: string): Promise<MatterClause[]> {
+    const matter = await repository.findById(matterId, firmId);
     if (!matter) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
 
-    const details = await repository.getDetails(matterId, userId);
+    const details = await repository.getDetails(matterId, firmId);
     if (!details) {
       throw new Error('Could not fetch matter details');
     }
@@ -257,21 +260,21 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
       await repository.saveClauses(matterId, extractedClausesList);
     }
 
-    const updatedDetails = await repository.getDetails(matterId, userId);
+    const updatedDetails = await repository.getDetails(matterId, firmId);
     return updatedDetails?.clauses || [];
   }
 
   async function generateDraft(
     matterId: string,
-    userId: string,
+    firmId: string,
     draftType: DraftType,
     instructions: string,
     title: string,
   ): Promise<MatterDraft> {
     // getDetails already does the ownership check internally via findById
-    const details = await repository.getDetails(matterId, userId);
+    const details = await repository.getDetails(matterId, firmId);
     if (!details) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
@@ -333,17 +336,17 @@ Please generate the draft document now:
     return savedDraft;
   }
 
-  async function deleteDraft(matterId: string, draftId: string, userId: string): Promise<void> {
-    const matter = await repository.findById(matterId, userId);
+  async function deleteDraft(matterId: string, draftId: string, firmId: string): Promise<void> {
+    const matter = await repository.findById(matterId, firmId);
     if (!matter) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
 
     const success = await repository.deleteDraft(matterId, draftId);
     if (!success) {
-      const error = new Error('Draft not found') as any;
+      const error = new Error('Draft not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }
@@ -351,12 +354,12 @@ Please generate the draft document now:
 
   async function exportMatter(
     matterId: string,
-    userId: string,
+    firmId: string,
     format: 'pdf' | 'docx',
   ): Promise<{ buffer: Buffer; mimeType: string }> {
-    const details = await repository.getDetails(matterId, userId);
+    const details = await repository.getDetails(matterId, firmId);
     if (!details) {
-      const error = new Error('Matter not found') as any;
+      const error = new Error('Matter not found') as FastifyError;
       error.statusCode = 404;
       throw error;
     }

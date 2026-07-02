@@ -1,5 +1,5 @@
 import { describe, it, expect, vi } from 'vitest';
-import { render, screen } from '@testing-library/react';
+import { render, screen, waitFor } from '@testing-library/react';
 import TeamPage from './page';
 
 vi.mock('@/lib/api', () => ({
@@ -20,8 +20,17 @@ vi.mock('@/lib/api', () => ({
 }));
 
 describe('TeamPage', () => {
-  it('renders loading state initially', () => {
+  it('renders loading state initially and then shows members', async () => {
     render(<TeamPage />);
     expect(screen.getByText(/loading team/i)).toBeInTheDocument();
+
+    // Wait for the loading state to disappear and members to load
+    await waitFor(() => {
+      expect(screen.queryByText(/loading team/i)).not.toBeInTheDocument();
+    });
+
+    expect(screen.getByText('Owner User')).toBeInTheDocument();
+    expect(screen.getByText('member@firm.com')).toBeInTheDocument();
+    expect(screen.getByText('invited@firm.com')).toBeInTheDocument();
   });
 });
