@@ -295,13 +295,21 @@ export const api = {
     getPlans: () =>
       get<{ plans: { id: string; name: string; displayName: string; priceInr: number; maxSeats: number; maxDocuments: number | null; maxAiCallsDay: number; maxStorageGb: number }[] }>('/billing/plans'),
     getSubscription: () =>
-      get<{ subscription: { id: string; status: string; trialEndsAt: string | null; plan: { displayName: string; priceInr: number; name: string }; currentPeriodEnd: string | null } }>('/billing/subscription'),
+      get<{ subscription: { id: string; status: string; trialEndsAt: string | null; gracePeriodEnd: string | null; plan: { displayName: string; priceInr: number; name: string }; currentPeriodEnd: string | null } }>('/billing/subscription'),
     getUsage: () =>
       get<{ usage: { aiCallsToday: number; aiCallsLimit: number; aiCallsPercent: number; documentsTotal: number; documentsLimit: number | null; seatsUsed: number; seatsLimit: number; storageUsedGb: number; storageLimit: number }; plan: { displayName: string } }>('/billing/usage'),
     subscribe: (planName: string, firmName: string, firmEmail: string) =>
       post<{ subscriptionId: string; shortUrl: string }>('/billing/subscribe', { planName, firmName, firmEmail }),
     upgrade: (planName: string) =>
       post<{ upgradeUrl: string }>('/billing/upgrade', { planName }),
+    createOrder: (planName: string, billingCycle: string) =>
+      post<{ orderId: string; amount: number; currency: string; keyId: string }>('/billing/orders', { planName, billingCycle }),
+    verifyPayment: (data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>
+      post<{ success: boolean; subscriptionStatus: string }>('/billing/verify', data),
+    getPaymentHistory: () =>
+      get<{ payments: { id: string; razorpayOrderId: string | null; amountPaise: number; currency: string; status: string; paymentMethod: string | null; createdAt: string }[] }>('/billing/payments'),
+    getOverview: () =>
+      get<{ subscription: any; invoices: any[]; payments: any[] }>('/billing/overview'),
   },
   // Expose raw helpers for pages that need them
   post,

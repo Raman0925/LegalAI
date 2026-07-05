@@ -21,7 +21,7 @@ declare module 'fastify' {
       role: string;             // 'owner' | 'admin' | 'member' — from profiles table
     };
 
-    // Populated by planLimit middleware — available inside route handlers
+    // Populated by planLimit or requireActiveSubscription middleware
     subscription?: FirmSubscription;
 
     // Attached by @fastify/raw-body plugin — used for webhook signature verification
@@ -29,5 +29,11 @@ declare module 'fastify' {
 
     // Track usage record ID for plan-limit TOCTOU race resolution
     usageRecordId?: string | null;
+
+    // Subscription grace period warning — set by requireActiveSubscription middleware
+    subscriptionWarning?: {
+      message: string;
+      gracePeriodEnd: Date | null;
+    };
   }
 }

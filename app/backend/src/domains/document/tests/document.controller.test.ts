@@ -21,6 +21,22 @@ vi.mock('../document.service.js', () => ({
   }),
 }));
 
+// Plan limits / usage tracking are enforced per-firm and exercised in
+// plan-limits.middleware.test.ts — no-op them here so route behavior can be
+// tested in isolation.
+vi.mock('#middlewares/plan-limits.middleware.js', () => ({
+  planLimit: vi.fn().mockReturnValue(async () => {}),
+}));
+
+vi.mock('#middlewares/usage-tracker.middleware.js', () => ({
+  trackAfterResponse: vi.fn().mockReturnValue(async () => {}),
+}));
+
+vi.mock('#domains/billing/billing.repository.js', () => ({
+  getTotalUsageForFirm: vi.fn().mockResolvedValue(0),
+  trackUsage: vi.fn().mockResolvedValue('usage-1'),
+}));
+
 function buildMultipartPayload(filename: string, content: string, boundary: string): string {
   return [
     `--${boundary}`,
@@ -40,6 +56,7 @@ describe('Document Controller Routes', () => {
     vi.clearAllMocks();
     app = Fastify();
     app.decorate('pg', {});
+    app.decorate('supabase', {});
     app.addHook('onRequest', async (request: any) => {
       request.user = {
         id: 'user-1',

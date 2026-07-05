@@ -12,6 +12,9 @@ import {
   matterDraftResponseSchema,
 } from './matter.validator.js';
 import { MatterType, MatterStatus, DraftType } from './matter.model.js';
+import { planLimit } from '#middlewares/plan-limits.middleware.js';
+import { trackAfterResponse } from '#middlewares/usage-tracker.middleware.js';
+import { requireActiveSubscription } from '#middlewares/subscription.middleware.js';
 
 export default async function matterController(
   fastify: FastifyInstance,
@@ -32,7 +35,8 @@ export default async function matterController(
           201: matterResponseSchema,
         },
       },
-    },
+      preHandler: [requireActiveSubscription],
+    } as Record<string, unknown>,
     async (
       request: FastifyRequest<{
         Body: {
@@ -251,7 +255,9 @@ export default async function matterController(
           200: matterClauseListResponseSchema,
         },
       },
-    },
+      preHandler: [planLimit('ai_calls')],
+      onResponse: [trackAfterResponse('ai_calls')],
+    } as Record<string, unknown>,
     async (request: FastifyRequest<{ Params: { id: string } }>) => {
       return matterService.extractClauses(request.params.id, request.user.firmId);
     },
@@ -277,7 +283,9 @@ export default async function matterController(
           201: matterDraftResponseSchema,
         },
       },
-    },
+      preHandler: [planLimit('ai_calls')],
+      onResponse: [trackAfterResponse('ai_calls')],
+    } as Record<string, unknown>,
     async (
       request: FastifyRequest<{
         Params: { id: string };

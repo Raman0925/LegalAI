@@ -1,5 +1,6 @@
 import { FastifyInstance } from 'fastify';
 import authenticate from '#middlewares/auth.middleware.js';
+import { requireActiveSubscription } from '#middlewares/subscription.middleware.js';
 import {
   createFirmAndOnboard,
   inviteMember,
@@ -47,7 +48,7 @@ export async function onboardingController(app: FastifyInstance) {
   // Only firm owners and admins can invite.
   // Enforces seat limits before sending.
   app.post('/invite', {
-    preHandler: [authenticate],
+    preHandler: [authenticate, requireActiveSubscription],
     schema: inviteMemberJsonSchema,
   }, async (request, reply) => {
     const { id: userId, firmId, role } = request.user;

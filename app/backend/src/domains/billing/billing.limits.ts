@@ -83,15 +83,22 @@ export function checkSeatLimit(
 
 /**
  * Check if subscription status allows API access.
+ * Supports grace_period — allows access during the 7-day grace window
+ * after payment failure, before restricting.
  */
 export function isSubscriptionActive(
   status: string,
-  trialEndsAt: Date | null
+  trialEndsAt: Date | null,
+  gracePeriodEnd?: Date | null
 ): boolean {
   if (status === 'active') return true;
   if (status === 'trial') {
     if (!trialEndsAt) return true;
     return new Date() < trialEndsAt;
+  }
+  if (status === 'grace_period') {
+    if (!gracePeriodEnd) return true;
+    return new Date() < gracePeriodEnd;
   }
   return false;
 }

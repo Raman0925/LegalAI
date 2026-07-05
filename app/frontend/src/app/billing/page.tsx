@@ -6,6 +6,7 @@ import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { BillingOverview } from '@/components/billing/BillingOverview';
 
 interface UsageSummary {
   aiCallsToday: number;
@@ -22,6 +23,7 @@ interface UsageSummary {
 interface Subscription {
   status: string;
   trialEndsAt: string | null;
+  gracePeriodEnd: string | null;
   plan: {
     displayName: string;
     priceInr: number;
@@ -111,8 +113,12 @@ export default function BillingPage() {
   }
 
   const isTrialing = subscription?.status === 'trial';
+  const isGracePeriod = subscription?.status === 'grace_period';
   const trialDaysLeft = subscription?.trialEndsAt
     ? Math.max(0, Math.ceil((new Date(subscription.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    : 0;
+  const graceDaysLeft = subscription?.gracePeriodEnd
+    ? Math.max(0, Math.ceil((new Date(subscription.gracePeriodEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
     : 0;
 
   return (
@@ -124,13 +130,45 @@ export default function BillingPage() {
         </div>
       </div>
 
+      {/* Grace Period Warning */}
+      {isGracePeriod && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
+          <div className="flex items-start gap-3">
+            <span className="text-amber-600 text-lg">⚠️</span>
+            <div>
+              <p className="text-sm font-medium text-amber-800">
+                Payment failed — {graceDaysLeft} days remaining in grace period
+              </p>
+              <p className="text-xs text-amber-600 mt-1">
+                Please update your payment method to avoid service interruption.
+              </p>
+              <Button
+                variant="outline"
+                className="mt-2 text-amber-800 border-amber-300 hover:bg-amber-100"
+                onClick={() => router.push('/billing/plans')}
+              >
+                Update Payment
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Current Plan */}
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
             <CardTitle className="text-lg">Current Plan</CardTitle>
-            <Badge className={isTrialing ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800'}>
-              {isTrialing ? `Trial — ${trialDaysLeft} days left` : subscription?.status ?? 'Unknown'}
+            <Badge className={
+              isTrialing ? 'bg-blue-100 text-blue-800' :
+              isGracePeriod ? 'bg-amber-100 text-amber-800' :
+              'bg-green-100 text-green-800'
+            }>
+              {isTrialing
+                ? `Trial — ${trialDaysLeft} days left`
+                : isGracePeriod
+                ? `Grace Period — ${graceDaysLeft} days left`
+                : subscription?.status ?? 'Unknown'}
             </Badge>
           </div>
           <CardDescription>
@@ -184,6 +222,9 @@ export default function BillingPage() {
           </CardContent>
         </Card>
       )}
+
+      {/* Payment History & Invoices */}
+      <BillingOverview />
     </div>
   );
 }

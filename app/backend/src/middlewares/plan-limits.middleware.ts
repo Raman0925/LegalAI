@@ -47,7 +47,7 @@ export function planLimit(metric: UsageMetric) {
     }
 
     // ── 2. Check subscription status is usable ───────────────────────────────
-    if (!isSubscriptionActive(subscription.status, subscription.trialEndsAt)) {
+    if (!isSubscriptionActive(subscription.status, subscription.trialEndsAt, subscription.gracePeriodEnd)) {
       reply.status(402).send({
         error: `Your subscription is ${subscription.status}. Please update your billing.`,
         status: subscription.status,
@@ -60,7 +60,7 @@ export function planLimit(metric: UsageMetric) {
     const today = new Date().toISOString().slice(0, 10);
     const currentUsage = metric === 'ai_calls'
       ? await billingRepo.getDailyUsage(supabase, firmId, metric, today)
-      : await getTotalUsageForFirm(supabase, firmId, metric);
+      : await billingRepo.getTotalUsageForFirm(supabase, firmId, metric);
 
     // ── 4. Check against plan limits ─────────────────────────────────────────
     const limitCheck = checkLimit(subscription.plan, metric, currentUsage);
@@ -87,23 +87,4 @@ export function planLimit(metric: UsageMetric) {
     // ── 5. Attach subscription for downstream use ────────────────────────────
     request.subscription = subscription;
   };
-}
-
-// ─── Helper ──────────────────────────────────────────────────────────────────
-
-async function getTotalUsageForFirm(
-  supabase: ReturnType<typeof import('#utils/storage/supabaseClient.js').createSupabaseAdminClient>,
-  firmId: string,
-  metric: UsageMetric
-): Promise<number> {
-  const { data } = await supabase
-    .from('usage_records')
-    .select('quantity')
-    .eq('firm_id', firmId)
-    .eq('metric', metric);
-
-  return (data ?? []).reduce(
-    (sum: number, row: { quantity: number }) => sum + row.quantity,
-    0
-  );
 }

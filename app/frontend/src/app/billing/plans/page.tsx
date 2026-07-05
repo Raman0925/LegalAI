@@ -1,10 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
+import { PaymentButton } from '@/components/billing/PaymentButton';
 
 interface Plan {
   id: string;
@@ -20,20 +22,20 @@ interface Plan {
 const PLAN_FEATURES: Record<string, string[]> = {
   starter: [
     'Up to 3 team members',
-    '50 AI calls/day',
-    '100 documents',
+    '100 AI calls/day',
+    '50 documents',
     '5 GB storage',
   ],
   growth: [
     'Up to 10 team members',
-    '200 AI calls/day',
-    '1,000 documents',
-    '25 GB storage',
+    '500 AI calls/day',
+    '250 documents',
+    '20 GB storage',
     'Priority support',
   ],
   pro: [
     'Up to 25 team members',
-    '500 AI calls/day',
+    '2,000 AI calls/day',
     'Unlimited documents',
     '100 GB storage',
     'Priority support',
@@ -51,10 +53,11 @@ const PLAN_FEATURES: Record<string, string[]> = {
 };
 
 export default function PlansPage() {
+  const router = useRouter();
   const [plans, setPlans] = useState<Plan[]>([]);
   const [currentPlan, setCurrentPlan] = useState<string | null>(null);
+  const [billingCycle, setBillingCycle] = useState<'monthly' | 'yearly'>('monthly');
   const [loading, setLoading] = useState(true);
-  const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [error, setError] = useState('');
 
   const fetchData = useCallback(async () => {
@@ -79,19 +82,21 @@ export default function PlansPage() {
     fetchData();
   }, [fetchData]);
 
-  const handleUpgrade = async (planName: string) => {
-    setActionLoading(planName);
-    try {
-      const result = await api.billing.upgrade(planName);
-      if (result.upgradeUrl) {
-        window.open(result.upgradeUrl, '_blank');
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Upgrade failed';
-      setError(message);
-    } finally {
-      setActionLoading(null);
+  const getPrice = (plan: Plan) => {
+    if (plan.priceInr === 0) return null;
+    if (billingCycle === 'yearly') {
+      // Yearly: 10 months price (2 months free)
+      return Math.round(plan.priceInr * 10);
     }
+    return plan.priceInr;
+  };
+
+  const getMonthlyEquivalent = (plan: Plan) => {
+    if (plan.priceInr === 0) return null;
+    if (billingCycle === 'yearly') {
+      return Math.round((plan.priceInr * 10) / 12);
+    }
+    return plan.priceInr;
   };
 
   if (loading) {
@@ -111,6 +116,37 @@ export default function PlansPage() {
         </p>
       </div>
 
+      {/* Billing Cycle Toggle */}
+      <div className="flex items-center justify-center gap-3">
+        <button
+          onClick={() => setBillingCycle('monthly')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+            billingCycle === 'monthly'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Monthly
+        </button>
+        <button
+          onClick={() => setBillingCycle('yearly')}
+          className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors flex items-center gap-2 ${
+            billingCycle === 'yearly'
+              ? 'bg-blue-600 text-white'
+              : 'bg-gray-100 text-gray-600 hover:bg-gray-200'
+          }`}
+        >
+          Yearly
+          <span className={`text-xs px-1.5 py-0.5 rounded-full ${
+            billingCycle === 'yearly'
+              ? 'bg-green-500 text-white'
+              : 'bg-green-100 text-green-700'
+          }`}>
+            Save 17%
+          </span>
+        </button>
+      </div>
+
       {error && (
         <p className="text-sm text-red-600 bg-red-50 p-3 rounded-md text-center">{error}</p>
       )}
@@ -119,6 +155,8 @@ export default function PlansPage() {
         {plans.map((plan) => {
           const isCurrent = currentPlan === plan.name;
           const features = PLAN_FEATURES[plan.name] ?? [];
+          const price = getPrice(plan);
+          const monthlyEquivalent = getMonthlyEquivalent(plan);
 
           return (
             <Card
@@ -133,10 +171,21 @@ export default function PlansPage() {
               <CardHeader className="text-center">
                 <CardTitle className="text-lg">{plan.displayName}</CardTitle>
                 <CardDescription>
-                  {plan.priceInr > 0
-                    ? <span className="text-2xl font-bold text-gray-900">₹{(plan.priceInr / 100).toLocaleString()}<span className="text-sm font-normal text-gray-500">/mo</span></span>
-                    : <span className="text-2xl font-bold text-gray-900">Custom</span>
-                  }
+                  {price !== null ? (
+                    <div className="space-y-1">
+                      <span className="text-2xl font-bold text-gray-900">
+                        ₹{(monthlyEquivalent! / 100).toLocaleString()}
+                        <span className="text-sm font-normal text-gray-500">/mo</span>
+                      </span>
+                      {billingCycle === 'yearly' && (
+                        <div className="text-xs text-gray-500">
+                          Billed ₹{(price / 100).toLocaleString()}/year
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="text-2xl font-bold text-gray-900">Custom</span>
+                  )}
                 </CardDescription>
               </CardHeader>
               <CardContent className="space-y-4">
@@ -149,20 +198,22 @@ export default function PlansPage() {
                   ))}
                 </ul>
 
-                <Button
-                  className="w-full"
-                  variant={isCurrent ? 'outline' : 'default'}
-                  disabled={isCurrent || actionLoading === plan.name}
-                  onClick={() => handleUpgrade(plan.name)}
-                >
-                  {isCurrent
-                    ? 'Current'
-                    : actionLoading === plan.name
-                    ? 'Processing...'
-                    : plan.name === 'enterprise'
-                    ? 'Contact Sales'
-                    : 'Upgrade'}
-                </Button>
+                {plan.name === 'enterprise' ? (
+                  <Button className="w-full" variant="outline" disabled={isCurrent}>
+                    {isCurrent ? 'Current' : 'Contact Sales'}
+                  </Button>
+                ) : isCurrent ? (
+                  <Button className="w-full" variant="outline" disabled>
+                    Current
+                  </Button>
+                ) : (
+                  <PaymentButton
+                    planName={plan.name}
+                    billingCycle={billingCycle}
+                    label="Select Plan"
+                    onSuccess={() => router.push('/dashboard')}
+                  />
+                )}
               </CardContent>
             </Card>
           );
