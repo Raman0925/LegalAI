@@ -3,21 +3,15 @@ import authenticate from '#middlewares/auth.middleware.js';
 import { requireFirmOwner } from '#middlewares/billing-owner.middleware.js';
 import * as repo from './billing.repository.js';
 import {
-  createRazorpaySubscription,
   startTrial,
   verifyWebhookSignature,
-  createUpgradeLink,
   createOrder,
   verifyPayment,
 } from './billing.service.js';
 import { processWebhookEvent } from './billing.webhook.js';
 import {
-  SelectPlanSchema,
-  UpgradePlanSchema,
   CreateOrderSchema,
   VerifyPaymentSchema,
-  subscribeJsonSchema,
-  upgradeJsonSchema,
   createOrderJsonSchema,
   verifyPaymentJsonSchema,
 } from './billing.schema.js';
@@ -49,29 +43,7 @@ export async function billingController(app: FastifyInstance) {
     return reply.status(201).send({ subscription });
   });
 
-  // ── POST /billing/subscribe ─────────────────────────────────────────────────
-  // Create a Razorpay subscription and return a hosted payment link.
-  // After the firm pays on Razorpay's page, the webhook updates our DB.
-  app.post('/subscribe', {
-    preHandler: [authenticate, requireFirmOwner],
-    schema: subscribeJsonSchema,
-  }, async (request, reply) => {
-    const { firmId } = request.user;
-    const body = SelectPlanSchema.parse(request.body);
 
-    try {
-      const result = await createRazorpaySubscription(app.supabase, {
-        firmId,
-        planName: body.planName,
-        firmName: body.firmName,
-        firmEmail: body.firmEmail,
-      });
-      return reply.status(201).send(result);
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Subscription creation failed';
-      return reply.status(400).send({ error: message });
-    }
-  });
 
   // ── POST /billing/orders ────────────────────────────────────────────────────
   // Create a Razorpay order for the Checkout modal flow.
@@ -213,24 +185,7 @@ export async function billingController(app: FastifyInstance) {
     });
   });
 
-  // ── POST /billing/upgrade ───────────────────────────────────────────────────
-  // Upgrades firm to a higher plan via Razorpay and returns a confirmation link.
-  app.post('/upgrade', {
-    preHandler: [authenticate, requireFirmOwner],
-    schema: upgradeJsonSchema,
-  }, async (request, reply) => {
-    const { firmId } = request.user;
 
-    const { planName } = UpgradePlanSchema.parse(request.body);
-
-    try {
-      const upgradeUrl = await createUpgradeLink(app.supabase, firmId, planName);
-      return reply.send({ upgradeUrl });
-    } catch (err) {
-      const message = err instanceof Error ? err.message : 'Upgrade failed';
-      return reply.status(400).send({ error: message });
-    }
-  });
 
   // ── POST /billing/webhook ───────────────────────────────────────────────────
   // Public endpoint — called by Razorpay, NOT by our users.

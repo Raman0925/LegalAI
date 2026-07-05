@@ -33,7 +33,7 @@ async function handleProxy(request: NextRequest) {
     return NextResponse.json({ error: 'Invalid path format' }, { status: 400 });
   }
 
-  const allowedPrefixes = ['/editor', '/contracts', '/matters', '/onboarding', '/billing'];
+  const allowedPrefixes = ['/editor', '/contracts', '/matters', '/onboarding', '/billing', '/api/research', '/chat'];
   const isAllowed = allowedPrefixes.some(prefix => path.startsWith(prefix));
   if (!isAllowed) {
     return NextResponse.json({ error: 'Access denied to this API resource' }, { status: 403 });

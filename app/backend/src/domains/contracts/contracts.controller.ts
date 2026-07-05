@@ -12,6 +12,7 @@ import {
 import {
   ContractIdParamSchema,
   ClauseQuestionSchema,
+  UploadContractSchema,
   contractIdParamJsonSchema,
   clauseQuestionJsonSchema,
 } from './contracts.schema.js';
@@ -19,6 +20,8 @@ import { z } from 'zod';
 import { ChatAnthropic } from '@langchain/anthropic';
 import { SystemMessage, HumanMessage } from '@langchain/core/messages';
 import { config } from '#config/index.js';
+import { createMatterRepository } from '../matter/matter.repository.js';
+import { extractTextFromContent } from '../../utils/ai/langchain-helper.js';
 
 export async function contractsController(app: FastifyInstance) {
 
@@ -35,7 +38,16 @@ export async function contractsController(app: FastifyInstance) {
     }
 
     const buffer = await data.toBuffer();
-    const matterId = (request.query as { matterId?: string }).matterId;
+    const query = UploadContractSchema.parse(request.query);
+    const matterId = query.matterId;
+
+    if (matterId) {
+      const matterRepo = createMatterRepository(app.pg);
+      const matter = await matterRepo.findById(matterId, firmId);
+      if (!matter) {
+        return reply.status(403).send({ error: 'Forbidden', message: 'Matter not found or does not belong to your firm.' });
+      }
+    }
 
     try {
       const contract = await uploadContract(app.supabase, {
@@ -111,13 +123,20 @@ export async function contractsController(app: FastifyInstance) {
       'X-Accel-Buffering': 'no',
     });
 
+    const abortController = new AbortController();
+    request.raw.on('close', () => abortController.abort());
+
     try {
       const stream = streamContractAnalysis(
         app.supabase,
         contractId,
-        firmId
+        firmId,
+        abortController.signal
       );
       for await (const chunk of stream) {
+        if (abortController.signal.aborted) {
+          return;
+        }
         reply.raw.write(`data: ${JSON.stringify(chunk)}\n\n`);
       }
     } catch (err) {
@@ -162,6 +181,9 @@ export async function contractsController(app: FastifyInstance) {
       'X-Accel-Buffering': 'no',
     });
 
+    const abortController = new AbortController();
+    request.raw.on('close', () => abortController.abort());
+
     try {
       const systemPrompt = `You are a legal analyst answering questions about a specific contract.
 Answer based only on the contract text provided. Be precise and cite specific clauses.
@@ -177,16 +199,13 @@ Contract context:\n${context}`;
       const stream = await llm.stream([
         new SystemMessage(systemPrompt),
         new HumanMessage(body.question),
-      ]);
+      ], { signal: abortController.signal });
 
       for await (const chunk of stream) {
-        const text =
-          typeof chunk.content === 'string'
-            ? chunk.content
-            : chunk.content
-                .filter((b: any) => b.type === 'text')
-                .map((b: any) => b.text)
-                .join('');
+        if (abortController.signal.aborted) {
+          return;
+        }
+        const text = extractTextFromContent(chunk.content);
         if (text) {
           reply.raw.write(
             `data: ${JSON.stringify({ type: 'text', text })}\n\n`

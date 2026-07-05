@@ -6,8 +6,7 @@ import 'react-pdf/dist/Page/AnnotationLayer.css';
 import 'react-pdf/dist/Page/TextLayer.css';
 import { Button } from '@/components/ui/button';
 
-// Set worker source using version of pdfjs-dist
-pdfjs.GlobalWorkerOptions.workerSrc = `//unpkg.com/pdfjs-dist@${pdfjs.version}/build/pdf.worker.min.js`;
+pdfjs.GlobalWorkerOptions.workerSrc = '/pdf.worker.min.mjs';
 
 interface PdfViewerProps {
   signedUrl: string;

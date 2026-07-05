@@ -2,6 +2,7 @@ import { ChatAnthropic } from '@langchain/anthropic';
 import { HumanMessage } from '@langchain/core/messages';
 import { config } from '#config/index.js';
 import { ContractAnnotation, ClauseType, RiskLevel, CLAUSE_TYPES } from './contracts.types.js';
+import { extractTextFromContent } from '../../utils/ai/langchain-helper.js';
 
 interface PageChunk {
   pageNumber: number;
@@ -25,13 +26,16 @@ interface RawAnnotation {
  */
 export async function* analyzeContractPages(
   contractId: string,
-  pages: PageChunk[]
+  pages: PageChunk[],
+  signal?: AbortSignal
 ): AsyncGenerator<Omit<ContractAnnotation, 'id' | 'createdAt'>> {
 
   // Batch pages into ~6000 token chunks to stay under context limit
   const batches = batchPages(pages, 6000);
 
   for (const batch of batches) {
+    if (signal?.aborted) return;
+
     const context = batch
       .map(p => `[PAGE ${p.pageNumber}]\n${p.content}`)
       .join('\n\n---\n\n');
@@ -68,16 +72,11 @@ ${context}`;
         temperature: 0.1,
       });
 
-      const stream = await llm.stream([new HumanMessage(prompt)]);
+      const stream = await llm.stream([new HumanMessage(prompt)], { signal });
 
       for await (const chunk of stream) {
-        const text =
-          typeof chunk.content === 'string'
-            ? chunk.content
-            : chunk.content
-                .filter((b: any) => b.type === 'text')
-                .map((b: any) => b.text)
-                .join('');
+        if (signal?.aborted) return;
+        const text = extractTextFromContent(chunk.content);
         rawResponse += text;
       }
     } catch (err) {

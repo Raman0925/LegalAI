@@ -1,17 +1,34 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { createBrowserClient } from '@/lib/supabase/client';
 
 export default function OnboardingPage() {
   const router = useRouter();
   const [firmName, setFirmName] = useState('');
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    const supabase = createBrowserClient();
+    async function checkSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace('/login');
+      } else {
+        setCheckingSession(false);
+      }
+    }
+    checkSession();
+  }, [router]);
 
   const handleCreate = async () => {
     if (!firmName.trim()) return;
@@ -28,6 +45,8 @@ export default function OnboardingPage() {
       setLoading(false);
     }
   };
+
+  if (checkingSession) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

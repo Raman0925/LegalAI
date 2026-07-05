@@ -1,7 +1,53 @@
 import { vi, describe, it, expect, beforeEach } from 'vitest';
-import { createToolRunner } from '../tool-runner.js';
+import { createToolRunner, ToolHandler } from '../tool-runner.js';
 import { ChatAnthropic } from '@langchain/anthropic';
-import { getOrderStatus, getCustomerAccount } from '../../../domains/support/tools.js';
+
+const getOrderStatus: ToolHandler<
+  { orderId: string },
+  { orderId: string; status: string; eta: string }
+> = {
+  definition: {
+    name: 'getOrderStatus',
+    description: 'Look up the status and estimated arrival date of an order by its ID.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        orderId: {
+          type: 'string',
+          description: 'The unique ID of the order.',
+        },
+      },
+      required: ['orderId'],
+    },
+  },
+  handler: async (input) => {
+    return { orderId: input.orderId, status: 'shipped', eta: '2024-01-15' };
+  },
+};
+
+const getCustomerAccount: ToolHandler<
+  { email: string },
+  { email: string; plan: string; since: string }
+> = {
+  definition: {
+    name: 'getCustomerAccount',
+    description: 'Get information about a customer account using their email address.',
+    input_schema: {
+      type: 'object',
+      properties: {
+        email: {
+          type: 'string',
+          description: 'The email address of the customer.',
+        },
+      },
+      required: ['email'],
+    },
+  },
+  handler: async (input) => {
+    return { email: input.email, plan: 'pro', since: '2023-01-01' };
+  },
+};
+
 
 vi.mock('@langchain/anthropic', () => {
   return {

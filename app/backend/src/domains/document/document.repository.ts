@@ -48,6 +48,7 @@ export interface DocumentRepository {
   listByFirm(firmId: string): Promise<DocumentRecord[]>;
   updateStatus(
     id: string,
+    firmId: string,
     status: DocumentStatus,
     fields?: { chunkCount?: number; errorMsg?: string | null },
   ): Promise<void>;
@@ -99,16 +100,17 @@ export function createDocumentRepository(pgPool: pg.Pool): DocumentRepository {
 
   async function updateStatus(
     id: string,
+    firmId: string,
     status: DocumentStatus,
     fields?: { chunkCount?: number; errorMsg?: string | null },
   ): Promise<void> {
     await pgPool.query(
       `UPDATE documents
-       SET status      = $2,
-           chunk_count = COALESCE($3, chunk_count),
-           error_msg   = CASE WHEN $4::text IS NOT NULL THEN $4 ELSE error_msg END
-       WHERE id = $1`,
-      [id, status, fields?.chunkCount ?? null, fields?.errorMsg ?? null],
+       SET status      = $3,
+           chunk_count = COALESCE($4, chunk_count),
+           error_msg   = CASE WHEN $5::text IS NOT NULL THEN $5 ELSE error_msg END
+       WHERE id = $1 AND firm_id = $2`,
+      [id, firmId, status, fields?.chunkCount ?? null, fields?.errorMsg ?? null],
     );
   }
 

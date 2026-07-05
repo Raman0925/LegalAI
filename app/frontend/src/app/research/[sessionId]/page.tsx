@@ -3,7 +3,7 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { api, API_BASE } from '@/lib/api';
+import { api, API_BASE, getAuthHeaders } from '@/lib/api';
 import { createBrowserClient } from '@/lib/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
@@ -33,6 +33,15 @@ export default function ResearchSessionPage() {
   const [userProfile, setUserProfile] = React.useState({ fullName: '', email: '' });
 
   const bottomRef = React.useRef<HTMLDivElement>(null);
+  const streamAbortControllerRef = React.useRef<AbortController | null>(null);
+
+  React.useEffect(() => {
+    return () => {
+      if (streamAbortControllerRef.current) {
+        streamAbortControllerRef.current.abort();
+      }
+    };
+  }, []);
 
   React.useEffect(() => {
     async function loadData() {
@@ -94,6 +103,11 @@ export default function ResearchSessionPage() {
     setStreamingText('');
     setCitations([]);
 
+    if (streamAbortControllerRef.current) {
+      streamAbortControllerRef.current.abort();
+    }
+    streamAbortControllerRef.current = new AbortController();
+
     try {
       // 1. Add user message locally
       const tempUserMsg: ResearchMessage = {
@@ -106,25 +120,15 @@ export default function ResearchSessionPage() {
       };
       setMessages((prev) => [...prev, tempUserMsg]);
 
-      // 2. Fetch authenticated Supabase access token
-      const supabase = createBrowserClient();
-      const {
-        data: { session },
-      } = await supabase.auth.getSession();
-      const token = session?.access_token;
+      // 2. Fetch authenticated headers dynamically
+      const authHeaders = await getAuthHeaders();
 
-      if (!token) {
-        throw new Error('Authentication expired. Please log in again.');
-      }
-
-      // 3. Initiate post stream fetch request
-      const res = await fetch(`${API_BASE}/api/research/sessions/${sessionId}/stream`, {
+      // 3. Initiate post stream fetch request through proxy
+      const res = await fetch(`/api/proxy?path=/api/research/sessions/${sessionId}/stream`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
-        },
+        headers: authHeaders,
         body: JSON.stringify({ content: queryText }),
+        signal: streamAbortControllerRef.current.signal,
       });
 
       if (!res.ok) {

@@ -5,6 +5,7 @@ import * as repo from './editor.repository.js';
 import { exportDocument } from './editor.exporter.js';
 import { SuggestionStreamChunk, RewriteTone, JSONContent } from './editor.types.js';
 import { config } from '#config/index.js';
+import { extractTextFromContent } from '../../utils/ai/langchain-helper.js';
 
 /**
  * Stream AI inline suggestion based on preceding text.
@@ -39,13 +40,7 @@ ${precedingText.slice(-800)}`;   // last 800 chars for context
       if (signal.aborted) {
         return;
       }
-      const text =
-        typeof chunk.content === 'string'
-          ? chunk.content
-          : chunk.content
-              .filter((b: any) => b.type === 'text')
-              .map((b: any) => b.text)
-              .join('');
+      const text = extractTextFromContent(chunk.content);
       if (text) {
         yield { type: 'text', text };
       }
@@ -100,13 +95,7 @@ ${selectedText}`;
       if (signal.aborted) {
         return;
       }
-      const text =
-        typeof chunk.content === 'string'
-          ? chunk.content
-          : chunk.content
-              .filter((b: any) => b.type === 'text')
-              .map((b: any) => b.text)
-              .join('');
+      const text = extractTextFromContent(chunk.content);
       if (text) {
         yield { type: 'text', text };
       }
@@ -133,13 +122,20 @@ export async function autoSaveDocument(
     content: JSONContent;
     wordCount: number;
     title?: string;
+    version?: number;
   }
 ) {
-  const updatedDoc = await repo.updateDocument(supabase, params.documentId, params.firmId, {
-    content: params.content,
-    wordCount: params.wordCount,
-    title: params.title,
-  });
+  const updatedDoc = await repo.updateDocument(
+    supabase,
+    params.documentId,
+    params.firmId,
+    {
+      content: params.content,
+      wordCount: params.wordCount,
+      title: params.title,
+    },
+    params.version
+  );
 
   // Save a version snapshot every 10 auto-saves
   if (updatedDoc.saveCount > 0 && updatedDoc.saveCount % 10 === 0) {

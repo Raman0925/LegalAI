@@ -20,6 +20,19 @@ vi.mock('../chat.service.js', () => {
   };
 });
 
+vi.mock('../chat.repository.js', () => ({
+  getOrCreateActiveSession: vi.fn().mockResolvedValue('session-1'),
+  getMessages: vi.fn().mockResolvedValue([]),
+  saveMessage: vi.fn().mockResolvedValue(undefined),
+}));
+
+// Mock authentication middleware
+vi.mock('#middlewares/auth.middleware.js', () => ({
+  default: vi.fn().mockImplementation(async (request: any) => {
+    request.user = { id: 'user-1', email: 'a@b.com', firmId: 'firm-1' };
+  }),
+}));
+
 // Plan limits / usage tracking are enforced per-firm and exercised in
 // plan-limits.middleware.test.ts — no-op them here so route behavior can be
 // tested in isolation.
@@ -37,7 +50,7 @@ describe('Chat Controller Routes', () => {
   beforeEach(async () => {
     app = Fastify();
     app.addHook('onRequest', async (request: any) => {
-      request.user = { id: 'user-1', email: 'a@b.com' };
+      request.user = { id: 'user-1', email: 'a@b.com', firmId: 'firm-1' };
     });
     app.register(fastifySSE);
     app.register(chatController, { prefix: '/chat' });

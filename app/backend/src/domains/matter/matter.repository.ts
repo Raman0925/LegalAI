@@ -141,8 +141,8 @@ export interface MatterRepository {
     },
   ): Promise<MatterRecord | null>;
   delete(id: string, firmId: string): Promise<boolean>;
-  attachDocument(matterId: string, documentId: string): Promise<void>;
-  detachDocument(matterId: string, documentId: string): Promise<void>;
+  attachDocument(matterId: string, documentId: string, firmId: string): Promise<void>;
+  detachDocument(matterId: string, documentId: string, firmId: string): Promise<void>;
   saveClauses(
     matterId: string,
     clauses: Array<{
@@ -155,10 +155,11 @@ export interface MatterRepository {
   saveDraft(
     matterId: string,
     draft: { id?: string; title: string; content: string; draftType: DraftType },
+    firmId: string,
   ): Promise<MatterDraft>;
-  deleteDraft(matterId: string, draftId: string): Promise<boolean>;
+  deleteDraft(matterId: string, draftId: string, firmId: string): Promise<boolean>;
   getDetails(id: string, firmId: string): Promise<MatterWithDetails | null>;
-  getDocChunks(documentId: string): Promise<string[]>;
+  getDocChunks(documentId: string, firmId: string): Promise<string[]>;
 }
 
 export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
@@ -270,20 +271,23 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     return (result.rowCount ?? 0) > 0;
   }
 
-  async function attachDocument(matterId: string, documentId: string): Promise<void> {
+  async function attachDocument(matterId: string, documentId: string, firmId: string): Promise<void> {
     await pgPool.query(
       `INSERT INTO matter_documents (matter_id, document_id)
-       VALUES ($1, $2)
+       SELECT $1, $2
+       WHERE EXISTS (SELECT 1 FROM matters WHERE id = $1 AND firm_id = $3)
+         AND EXISTS (SELECT 1 FROM documents WHERE id = $2 AND firm_id = $3)
        ON CONFLICT (matter_id, document_id) DO NOTHING`,
-      [matterId, documentId],
+      [matterId, documentId, firmId],
     );
   }
 
-  async function detachDocument(matterId: string, documentId: string): Promise<void> {
+  async function detachDocument(matterId: string, documentId: string, firmId: string): Promise<void> {
     await pgPool.query(
       `DELETE FROM matter_documents
-       WHERE matter_id = $1 AND document_id = $2`,
-      [matterId, documentId],
+       WHERE matter_id = $1 AND document_id = $2
+         AND EXISTS (SELECT 1 FROM matters WHERE id = $1 AND firm_id = $3)`,
+      [matterId, documentId, firmId],
     );
   }
 
@@ -307,7 +311,6 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     let index = 2;
 
     for (const clause of clauses) {
-      // Explicit index increment prevents undefined evaluation order of side-effects
       valueStrings.push(`($1, ${index}, ${index + 1}, ${index + 2}, ${index + 3})`);
       index += 4;
       values.push(clause.documentId);
@@ -327,20 +330,26 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
   async function saveDraft(
     matterId: string,
     draft: { id?: string; title: string; content: string; draftType: DraftType },
+    firmId: string,
   ): Promise<MatterDraft> {
     if (draft.id) {
       const result = await pgPool.query<DraftRow>(
-        `UPDATE matter_drafts
+        `UPDATE matter_drafts md
          SET title = $3, content = $4, draft_type = $5, updated_at = now()
-         WHERE id = $1 AND matter_id = $2
-         RETURNING *`,
-        [draft.id, matterId, draft.title, draft.content, draft.draftType],
+         FROM matters m
+         WHERE md.id = $1 AND md.matter_id = $2 AND m.id = $2 AND m.firm_id = $6
+         RETURNING md.*`,
+        [draft.id, matterId, draft.title, draft.content, draft.draftType, firmId],
       );
       if (!result.rows[0]) {
         throw new Error('Draft not found for updating');
       }
       return mapDraftRow(result.rows[0]);
     } else {
+      const matterCheck = await findById(matterId, firmId);
+      if (!matterCheck) {
+        throw new Error('Matter not found');
+      }
       const result = await pgPool.query<DraftRow>(
         `INSERT INTO matter_drafts (matter_id, title, content, draft_type)
          VALUES ($1, $2, $3, $4)
@@ -351,10 +360,12 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     }
   }
 
-  async function deleteDraft(matterId: string, draftId: string): Promise<boolean> {
+  async function deleteDraft(matterId: string, draftId: string, firmId: string): Promise<boolean> {
     const result = await pgPool.query(
-      `DELETE FROM matter_drafts WHERE id = $1 AND matter_id = $2`,
-      [draftId, matterId],
+      `DELETE FROM matter_drafts md
+       USING matters m
+       WHERE md.id = $1 AND md.matter_id = $2 AND m.id = $2 AND m.firm_id = $3`,
+      [draftId, matterId, firmId],
     );
     return (result.rowCount ?? 0) > 0;
   }
@@ -367,9 +378,9 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     const docResult = await pgPool.query<DocumentRow>(
       `SELECT d.* FROM documents d
        JOIN matter_documents md ON md.document_id = d.id
-       WHERE md.matter_id = $1
+       WHERE md.matter_id = $1 AND d.firm_id = $2
        ORDER BY d.created_at DESC`,
-      [id],
+      [id, firmId],
     );
     const attachedDocuments = docResult.rows.map(mapDocumentRow);
 
@@ -395,10 +406,13 @@ export function createMatterRepository(pgPool: pg.Pool): MatterRepository {
     };
   }
 
-  async function getDocChunks(documentId: string): Promise<string[]> {
+  async function getDocChunks(documentId: string, firmId: string): Promise<string[]> {
     const result = await pgPool.query<{ content: string }>(
-      `SELECT content FROM document_chunks WHERE document_id = $1 ORDER BY chunk_index ASC`,
-      [documentId],
+      `SELECT dc.content FROM document_chunks dc
+       JOIN documents d ON d.id = dc.document_id
+       WHERE dc.document_id = $1 AND d.firm_id = $2
+       ORDER BY dc.chunk_index ASC`,
+      [documentId, firmId],
     );
     return result.rows.map((row) => row.content);
   }

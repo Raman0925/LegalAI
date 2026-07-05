@@ -4,7 +4,6 @@ import { planLimit } from '#middlewares/plan-limits.middleware.js';
 import { trackAfterResponse } from '#middlewares/usage-tracker.middleware.js';
 import * as repo from './editor.repository.js';
 import {
-  autoSaveDocument,
   streamAiSuggestion,
   streamAiRewrite,
   exportDocumentById,
@@ -12,6 +11,7 @@ import {
 import {
   CreateDocumentSchema,
   UpdateDocumentSchema,
+  GetDocumentsQuerySchema,
   SaveVersionSchema,
   AiSuggestSchema,
   AiRewriteSchema,
@@ -23,8 +23,41 @@ import {
   legalDocumentSchema,
   documentVersionSchema,
 } from './editor.schema.js';
+import { createMatterRepository } from '../matter/matter.repository.js';
+import { z } from 'zod';
+import { ChatAnthropic } from '@langchain/anthropic';
+import { HumanMessage } from '@langchain/core/messages';
+import { config } from '#config/index.js';
+import { extractTextFromContent } from '../../utils/ai/langchain-helper.js';
 
 export async function editorController(app: FastifyInstance) {
+
+  // POST /editor/audit — text review audit (JSON)
+  app.post('/audit', {
+    preHandler: [authenticate, planLimit('ai_calls')],
+    onResponse: [trackAfterResponse('ai_calls')],
+  }, async (request, reply) => {
+    const body = z.object({ prompt: z.string() }).parse(request.body);
+
+    try {
+      const llm = new ChatAnthropic({
+        modelName: 'claude-3-5-sonnet-20241022',
+        apiKey: config.anthropicApiKey,
+        maxTokens: 2000,
+        temperature: 0.2,
+      });
+
+      const response = await llm.invoke([
+        new HumanMessage(body.prompt),
+      ]);
+
+      const text = extractTextFromContent(response.content);
+      return reply.send({ text });
+    } catch (err: any) {
+      console.error('Audit review failed:', err);
+      return reply.status(400).send({ error: 'Audit failed', message: err.message });
+    }
+  });
 
   // POST /editor/documents — create a new document
   app.post('/documents', {
@@ -52,6 +85,14 @@ export async function editorController(app: FastifyInstance) {
   }, async (request, reply) => {
     const { firmId, id: userId } = request.user;
     const body = CreateDocumentSchema.parse(request.body);
+
+    if (body.matterId) {
+      const matterRepo = createMatterRepository(app.pg);
+      const matter = await matterRepo.findById(body.matterId, firmId);
+      if (!matter) {
+        return reply.status(403).send({ error: 'Forbidden', message: 'Matter not found or does not belong to your firm.' });
+      }
+    }
 
     const doc = await repo.createDocument(app.supabase, {
       firmId,
@@ -85,7 +126,16 @@ export async function editorController(app: FastifyInstance) {
     },
   }, async (request, reply) => {
     const { firmId } = request.user;
-    const { matterId } = request.query as { matterId?: string };
+    const { matterId } = GetDocumentsQuerySchema.parse(request.query);
+
+    if (matterId) {
+      const matterRepo = createMatterRepository(app.pg);
+      const matter = await matterRepo.findById(matterId, firmId);
+      if (!matter) {
+        return reply.status(403).send({ error: 'Forbidden', message: 'Matter not found or does not belong to your firm.' });
+      }
+    }
+
     const documents = await repo.getDocumentsByFirm(app.supabase, firmId, matterId);
     return reply.send({ documents });
   });
@@ -126,7 +176,15 @@ export async function editorController(app: FastifyInstance) {
     schema: {
       ...updateDocumentJsonSchema,
       response: {
-        200: { type: 'object', properties: { saved: { type: 'boolean' } }, required: ['saved'] },
+        200: {
+          type: 'object',
+          properties: {
+            saved: { type: 'boolean' },
+            version: { type: 'integer' },
+          },
+          required: ['saved', 'version'],
+        },
+        409: errorResponseSchema,
         '4xx': errorResponseSchema,
         '5xx': errorResponseSchema,
       },
@@ -136,16 +194,42 @@ export async function editorController(app: FastifyInstance) {
     const { documentId } = DocumentIdParamSchema.parse(request.params);
     const body = UpdateDocumentSchema.parse(request.body);
 
-    await autoSaveDocument(app.supabase, {
-      documentId,
-      firmId,
-      userId,
-      content: body.content as never,
-      wordCount: body.wordCount,
-      title: body.title,
-    });
+    try {
+      const updatedDoc = await repo.updateDocument(
+        app.supabase,
+        documentId,
+        firmId,
+        {
+          title: body.title,
+          content: body.content as never,
+          wordCount: body.wordCount,
+          status: body.status,
+        },
+        body.version
+      );
 
-    return reply.send({ saved: true });
+      // Save a version snapshot every 10 auto-saves
+      if (updatedDoc.saveCount > 0 && updatedDoc.saveCount % 10 === 0) {
+        await repo.saveVersion(app.supabase, {
+          documentId,
+          firmId,
+          userId,
+          content: body.content as never,
+          wordCount: body.wordCount,
+          label: `Auto-snapshot #${updatedDoc.saveCount}`,
+        });
+      }
+
+      return reply.send({ saved: true, version: updatedDoc.version });
+    } catch (err: any) {
+      if (err.message === 'CONCURRENCY_CONFLICT') {
+        return reply.status(409).send({
+          error: 'Conflict',
+          message: 'The document has been modified by another user or session. Please reload and merge your changes.',
+        });
+      }
+      return reply.status(400).send({ error: 'Update failed', message: err.message });
+    }
   });
 
   // POST /editor/documents/:documentId/versions — create a checkpoint version snapshot

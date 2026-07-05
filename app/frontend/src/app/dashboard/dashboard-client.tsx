@@ -94,6 +94,21 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
     loadProfile();
   }, []);
 
+  // Fetch chat history on mount
+  React.useEffect(() => {
+    async function loadChatHistory() {
+      try {
+        const data = await api.chat.getHistory();
+        if (data.messages && data.messages.length > 0) {
+          setMessages(data.messages as any);
+        }
+      } catch (err) {
+        console.error('Failed to load chat history:', err);
+      }
+    }
+    loadChatHistory();
+  }, []);
+
   const handleUpdateProfile = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsUpdatingProfile(true);
@@ -124,14 +139,8 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
     setMessages(updatedHistory);
     setInputText('');
     setIsChatSending(true);
-
     try {
-      // Map frontend messages history to shape backend expects
-      const historyPayload = updatedHistory
-        .slice(0, -1) // skip the latest user message as it is sent as "message"
-        .map((m) => ({ role: m.role, content: m.content }));
-
-      const response = await api.chat.send(userMsg.content, historyPayload, chatTier);
+      const response = await api.chat.send(userMsg.content, [], chatTier);
 
       setMessages((prev) => [...prev, { role: 'assistant', content: response.text }]);
 
@@ -187,7 +196,7 @@ Contract text:
 ${documentText}`;
 
     try {
-      const response = await api.chat.send(prompt, [], chatTier);
+      const response = await api.editor.audit(prompt);
 
       // Strip any accidental markdown fences the model may have added.
       const clean = response.text.replace(/```json|```/g, '').trim();
@@ -198,14 +207,6 @@ ${documentText}`;
         risks: Array.isArray(parsed.risks) ? parsed.risks : [],
         obligations: Array.isArray(parsed.obligations) ? parsed.obligations : [],
       });
-
-      if (response.usage) {
-        setTokenStats((prev) => {
-          const newIn = prev.input + response.usage.inputTokens;
-          const newOut = prev.output + response.usage.outputTokens;
-          return { input: newIn, output: newOut, total: newIn + newOut, budget: prev.budget };
-        });
-      }
     } catch (err: any) {
       toast({
         title: 'Review Failed',

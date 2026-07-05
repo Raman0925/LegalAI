@@ -75,13 +75,13 @@ export function createDocumentService(pgPool: pg.Pool): DocumentService {
 
   async function ingest(doc: DocumentRecord, buffer: Buffer): Promise<void> {
     try {
-      await repository.updateStatus(doc.id, 'processing');
+      await repository.updateStatus(doc.id, doc.firmId, 'processing');
       const text = await parseFile(buffer, doc.fileType);
       const result = await ingestionPipeline.ingest({ id: doc.id, content: text });
-      await repository.updateStatus(doc.id, 'ready', { chunkCount: result.chunksCreated });
+      await repository.updateStatus(doc.id, doc.firmId, 'ready', { chunkCount: result.chunksCreated });
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Unknown ingestion error';
-      await repository.updateStatus(doc.id, 'failed', { errorMsg: message });
+      await repository.updateStatus(doc.id, doc.firmId, 'failed', { errorMsg: message });
     }
   }
 

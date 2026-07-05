@@ -13,32 +13,36 @@ vi.mock('@/lib/api', () => ({
 }));
 
 describe('OnboardingPage', () => {
-  it('renders firm name input and submit button', () => {
+  it('renders firm name input and submit button', async () => {
     render(<OnboardingPage />);
-    expect(screen.getByPlaceholderText(/sharma/i)).toBeInTheDocument();
-    expect(screen.getByRole('button', { name: /create firm/i })).toBeInTheDocument();
+    expect(await screen.findByPlaceholderText(/sharma/i)).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /create firm/i })).toBeInTheDocument();
   });
 
-  it('disables button when firm name is empty', () => {
+  it('disables button when firm name is empty', async () => {
     render(<OnboardingPage />);
-    const button = screen.getByRole('button', { name: /create firm/i });
+    const button = await screen.findByRole('button', { name: /create firm/i });
     expect(button).toBeDisabled();
   });
 
-  it('enables button when firm name is entered', () => {
+  it('enables button when firm name is entered', async () => {
     render(<OnboardingPage />);
-    fireEvent.change(screen.getByPlaceholderText(/sharma/i), {
+    const input = await screen.findByPlaceholderText(/sharma/i);
+    fireEvent.change(input, {
       target: { value: 'My Law Firm' },
     });
-    expect(screen.getByRole('button', { name: /create firm/i })).not.toBeDisabled();
+    const button = await screen.findByRole('button', { name: /create firm/i });
+    expect(button).not.toBeDisabled();
   });
 
   it('shows loading state during submission', async () => {
     render(<OnboardingPage />);
-    fireEvent.change(screen.getByPlaceholderText(/sharma/i), {
+    const input = await screen.findByPlaceholderText(/sharma/i);
+    fireEvent.change(input, {
       target: { value: 'My Law Firm' },
     });
-    fireEvent.click(screen.getByRole('button', { name: /create firm/i }));
+    const button = await screen.findByRole('button', { name: /create firm/i });
+    fireEvent.click(button);
     await waitFor(() => {
       expect(screen.getByText(/creating/i)).toBeInTheDocument();
     });

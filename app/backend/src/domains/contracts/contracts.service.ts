@@ -68,10 +68,17 @@ export async function uploadContract(
   const secureStorageUrl = `private://${storagePath}`;
 
   // Update contract with storage path
-  await supabase
+  const { data: updateData, error: updateError } = await supabase
     .from('contracts')
     .update({ storage_path: storagePath, storage_url: secureStorageUrl })
-    .eq('id', contract.id);
+    .eq('id', contract.id)
+    .select();
+
+  if (updateError) {
+    await supabase.storage.from('contracts').remove([storagePath]);
+    await supabase.from('contracts').delete().eq('id', contract.id);
+    throw new Error('Failed to update contract storage paths: ' + updateError.message);
+  }
 
   return { ...contract, storagePath, storageUrl: secureStorageUrl };
 }
@@ -83,7 +90,8 @@ export async function uploadContract(
 export async function* streamContractAnalysis(
   supabase: SupabaseClient,
   contractId: string,
-  firmId: string
+  firmId: string,
+  signal?: AbortSignal
 ): AsyncGenerator<AnalysisStreamChunk> {
   const contract = await repo.getContractById(supabase, contractId, firmId);
   if (!contract) {
@@ -91,9 +99,13 @@ export async function* streamContractAnalysis(
     return;
   }
 
+  if (signal?.aborted) return;
+
   // Mark as processing
   await repo.updateContractStatus(supabase, contractId, firmId, 'processing');
   yield { type: 'progress', progress: 5, message: 'Starting analysis...' };
+
+  if (signal?.aborted) return;
 
   // Download contract from storage
   let buffer: Buffer;
@@ -109,6 +121,7 @@ export async function* streamContractAnalysis(
     return;
   }
 
+  if (signal?.aborted) return;
   yield { type: 'progress', progress: 15, message: 'Extracting text from PDF...' };
 
   // Extract pages
@@ -120,6 +133,8 @@ export async function* streamContractAnalysis(
     yield { type: 'error', error: 'PDF text extraction failed' };
     return;
   }
+
+  if (signal?.aborted) return;
 
   // Save pages to DB
   try {
@@ -138,6 +153,7 @@ export async function* streamContractAnalysis(
     return;
   }
 
+  if (signal?.aborted) return;
   yield {
     type: 'progress',
     progress: 30,
@@ -147,7 +163,7 @@ export async function* streamContractAnalysis(
   // Run AI analysis — stream annotations as they arrive
   let annotationCount = 0;
   try {
-    const analysisStream = analyzeContractPages(contractId, extractionResult.pages);
+    const analysisStream = analyzeContractPages(contractId, extractionResult.pages, signal);
 
     for await (const annotation of analysisStream) {
       // Save each annotation to DB as it comes

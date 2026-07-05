@@ -186,8 +186,10 @@ export async function trackUsage(
   supabase: SupabaseClient,
   firmId: string,
   metric: UsageMetric,
-  quantity = 1
+  quantity = 1,
+  idempotencyKey?: string
 ): Promise<string | null> {
+  const key = idempotencyKey || `${firmId}_${metric}_${Date.now()}_${Math.random().toString(36).slice(2, 11)}`;
   // INSERT only — never UPDATE usage rows (audit trail)
   const { data, error } = await supabase
     .from('usage_records')
@@ -196,6 +198,7 @@ export async function trackUsage(
       usage_date: new Date().toISOString().slice(0, 10),
       metric,
       quantity,
+      idempotency_key: key,
     })
     .select('id')
     .single();

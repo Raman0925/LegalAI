@@ -140,6 +140,24 @@ export async function getInviteByToken(
   return mapInvite(data);
 }
 
+export async function getPendingInviteByEmail(
+  supabase: SupabaseClient,
+  firmId: string,
+  email: string
+): Promise<FirmInvite | null> {
+  const { data, error } = await supabase
+    .from('firm_invites')
+    .select('*')
+    .eq('firm_id', firmId)
+    .eq('email', email.toLowerCase())
+    .eq('accepted', false)
+    .gt('expires_at', new Date().toISOString())
+    .maybeSingle();
+
+  if (error || !data) return null;
+  return mapInvite(data);
+}
+
 export async function getPendingInvitesByFirm(
   supabase: SupabaseClient,
   firmId: string

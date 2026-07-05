@@ -1,6 +1,5 @@
 import postgres from 'postgres';
 import { HybridRetriever, createHybridRetriever } from '../../utils/vector/hybrid-retriever.js';
-import { VectorStore, createVectorStore } from '../../utils/vectorStore/vectorStore.js';
 import {
   EmbeddingService,
   createEmbeddingService,
@@ -21,6 +20,7 @@ import { Message, AssembledContext } from '../../utils/tokens/types.js';
 import { legalAiSystemPrompt } from '../../utils/prompts/prompt-manager.js';
 import { DEFAULT_CHAT_BUDGET } from './chat.constant.js';
 import { mapTierToModelRouterTier } from './chat.util.js';
+import * as repo from './chat.repository.js';
 
 // Fail fast at startup — don't let a missing key surface as a 401 mid-query.
 if (!process.env.COHERE_API_KEY) {
@@ -40,10 +40,9 @@ const db = postgres(process.env.DATABASE_URL || '', {
     : { rejectUnauthorized: process.env.DB_SSL_REJECT_UNAUTHORIZED !== 'false' },
 });
 
-const vectorStore = createVectorStore(db);
 const embeddingService = createEmbeddingService('text-embedding-3-small');
 const reranker = createReranker(process.env.COHERE_API_KEY);
-const retriever = createHybridRetriever(vectorStore, embeddingService, reranker, db);
+const retriever = createHybridRetriever(embeddingService, reranker, db);
 
 const tokenManager = createTokenBudgetManager(DEFAULT_CHAT_BUDGET);
 const assembler = createContextWindowAssembler(DEFAULT_CHAT_BUDGET, tokenManager);
@@ -51,10 +50,6 @@ const modelRouter = createModelRouter();
 const provider = createAnthropicProvider(process.env.ANTHROPIC_API_KEY);
 const streaming = createStreamingProvider(process.env.ANTHROPIC_API_KEY);
 
-// ---------------------------------------------------------------------------
-// Shared context builder — single source of truth for retrieval + assembly.
-// Both sendMessage and streamMessage call this; only the final LLM call differs.
-// ---------------------------------------------------------------------------
 interface BuiltContext {
   assembled: AssembledContext;
   finalSystemPrompt: string;
@@ -65,22 +60,21 @@ async function buildContext(
   message: string,
   history: Message[],
   tier: 'fast' | 'balanced' | 'powerful',
-  userId?: string,
+  userId: string,
+  firmId: string,
 ): Promise<BuiltContext> {
-  // 1. Retrieve chunks most relevant to the query (vector + keyword + rerank),
-  //    scoped to the requesting user's documents.
-  const searchResults = await retriever.retrieve(message, { userId });
+  // 1. Retrieve chunks most relevant to the query, scoped to firm and user
+  const searchResults = await retriever.retrieve(message, userId, firmId);
   const documents = searchResults.map((r) => r.content);
 
-  // 2. Assemble context window — assembler owns token budget + document fitting.
-  //    assembled.fittedDocuments contains only the docs that actually fit.
+  // 2. Assemble context window
   const assembled = assembler.assemble(legalAiSystemPrompt, history, message, documents);
 
-  // 3. Inject fitted docs into the system prompt placeholder.
+  // 3. Inject fitted docs
   const sourcesText = assembled.fittedDocuments.join('\n\n---\n\n');
   const finalSystemPrompt = legalAiSystemPrompt.replace('{{sources}}', sourcesText);
 
-  // 4. Resolve model from tier.
+  // 4. Resolve model
   const routerTier = mapTierToModelRouterTier(tier);
   const modelConfig = modelRouter.getModel('chat', routerTier);
 
@@ -88,23 +82,33 @@ async function buildContext(
 }
 
 export async function sendMessage(
+  supabase: any,
   message: string,
-  history: Message[],
   tier: 'fast' | 'balanced' | 'powerful' = 'balanced',
-  userId?: string,
+  userId: string,
+  firmId: string,
 ): Promise<{ text: string; usage: { inputTokens: number; outputTokens: number } }> {
+  const sessionId = await repo.getOrCreateActiveSession(supabase, firmId, userId);
+  await repo.saveMessage(supabase, sessionId, 'user', message);
+  const dbMessages = await repo.getMessages(supabase, sessionId, firmId);
+  const history = dbMessages.slice(0, -1);
+
   const { assembled, finalSystemPrompt, modelName } = await buildContext(
     message,
     history,
     tier,
     userId,
+    firmId,
   );
 
-  return provider.complete({
+  const response = await provider.complete({
     model: modelName,
     messages: assembled.messages,
     systemPrompt: finalSystemPrompt,
   });
+
+  await repo.saveMessage(supabase, sessionId, 'assistant', response.text);
+  return response;
 }
 
 export async function streamMessage(
@@ -113,13 +117,15 @@ export async function streamMessage(
   onChunk: (text: string) => void,
   onDone: (usage: { inputTokens: number; outputTokens: number }) => void,
   tier: 'fast' | 'balanced' | 'powerful' = 'balanced',
-  userId?: string,
+  userId: string,
+  firmId: string,
 ): Promise<void> {
   const { assembled, finalSystemPrompt, modelName } = await buildContext(
     message,
     history,
     tier,
     userId,
+    firmId,
   );
 
   await streaming.streamComplete(
@@ -130,11 +136,18 @@ export async function streamMessage(
 }
 
 export async function* streamMessageIterable(
+  supabase: any,
   message: string,
-  history: Message[],
   tier: 'fast' | 'balanced' | 'powerful' = 'balanced',
-  userId?: string,
+  userId: string,
+  firmId: string,
 ): AsyncGenerator<string | { data: any; event: string }, void, unknown> {
+  const sessionId = await repo.getOrCreateActiveSession(supabase, firmId, userId);
+  await repo.saveMessage(supabase, sessionId, 'user', message);
+  const dbMessages = await repo.getMessages(supabase, sessionId, firmId);
+  const history = dbMessages.slice(0, -1);
+
+  let fullAssistantResponse = '';
   const queue: Array<string | { data: any; event: string } | null> = [];
   let resolveNext: (() => void) | null = null;
 
@@ -146,17 +159,24 @@ export async function* streamMessageIterable(
     }
   };
 
-  // Trigger asynchronous message stream in the background
+  // Trigger stream completion in background
   streamMessage(
     message,
     history,
-    (chunk) => push(chunk),
+    (chunk) => {
+      fullAssistantResponse += chunk;
+      push(chunk);
+    },
     (usage) => {
+      repo.saveMessage(supabase, sessionId, 'assistant', fullAssistantResponse).catch((err) => {
+        console.error('Failed to save assistant message:', err);
+      });
       push({ data: usage, event: 'done' });
       push(null);
     },
     tier,
     userId,
+    firmId,
   ).catch((err) => {
     push({ data: JSON.stringify({ error: err.message }), event: 'error' });
     push(null);
@@ -170,7 +190,7 @@ export async function* streamMessageIterable(
     }
     const item = queue.shift();
     if (item === null || item === undefined) {
-      break; // Stop generator cleanly
+      break;
     }
     yield item;
   }

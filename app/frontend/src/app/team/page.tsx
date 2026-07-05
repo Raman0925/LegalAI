@@ -6,6 +6,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/com
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { createBrowserClient } from '@/lib/supabase/client';
+import { useRouter } from 'next/navigation';
 
 interface Member {
   id: string;
@@ -22,6 +24,8 @@ interface PendingInvite {
 }
 
 export default function TeamPage() {
+  const router = useRouter();
+  const [checkingSession, setCheckingSession] = useState(true);
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
   const [inviteEmail, setInviteEmail] = useState('');
@@ -44,8 +48,20 @@ export default function TeamPage() {
   }, []);
 
   useEffect(() => {
-    fetchMembers();
-  }, [fetchMembers]);
+    const supabase = createBrowserClient();
+    async function checkSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace('/login');
+      } else {
+        setCheckingSession(false);
+        fetchMembers();
+      }
+    }
+    checkSession();
+  }, [router, fetchMembers]);
 
   const handleInvite = async () => {
     if (!inviteEmail.trim()) return;
@@ -73,7 +89,7 @@ export default function TeamPage() {
     member: 'bg-gray-100 text-gray-800',
   };
 
-  if (loading) {
+  if (checkingSession || loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <p className="text-gray-500">Loading team...</p>

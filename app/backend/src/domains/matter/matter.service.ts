@@ -169,7 +169,7 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
       throw error;
     }
 
-    await repository.attachDocument(matterId, documentId);
+    await repository.attachDocument(matterId, documentId, firmId);
   }
 
   async function detachDocument(
@@ -185,7 +185,7 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
       throw error;
     }
 
-    await repository.detachDocument(matterId, documentId);
+    await repository.detachDocument(matterId, documentId, firmId);
   }
 
   async function extractClauses(matterId: string, firmId: string): Promise<MatterClause[]> {
@@ -219,7 +219,7 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
     }> = [];
 
     for (const doc of readyDocs) {
-      const chunks = await repository.getDocChunks(doc.id);
+      const chunks = await repository.getDocChunks(doc.id, firmId);
       let text = chunks.join('\n');
       if (text.length > MAX_CLAUSE_EXTRACTION_CHARS) {
         text = text.slice(0, MAX_CLAUSE_EXTRACTION_CHARS);
@@ -282,7 +282,7 @@ export function createMatterService(pgPool: pg.Pool): MatterService {
     let documentContext = '';
     const readyDocs = details.attachedDocuments.filter((d) => d.status === 'ready');
     for (const doc of readyDocs) {
-      const chunks = await repository.getDocChunks(doc.id);
+      const chunks = await repository.getDocChunks(doc.id, firmId);
       const text = chunks.join('\n');
       if (documentContext.length + text.length > MAX_CLAUSE_EXTRACTION_CHARS) {
         const remainingSpace = MAX_CLAUSE_EXTRACTION_CHARS - documentContext.length;
@@ -331,7 +331,7 @@ Please generate the draft document now:
       title,
       content: completionResult.text,
       draftType,
-    });
+    }, firmId);
 
     return savedDraft;
   }
@@ -344,7 +344,7 @@ Please generate the draft document now:
       throw error;
     }
 
-    const success = await repository.deleteDraft(matterId, draftId);
+    const success = await repository.deleteDraft(matterId, draftId, firmId);
     if (!success) {
       const error = new Error('Draft not found') as FastifyError;
       error.statusCode = 404;

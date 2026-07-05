@@ -11,6 +11,11 @@ export const UpdateDocumentSchema = z.object({
   content: z.record(z.string(), z.unknown()),   // TipTap JSONContent
   wordCount: z.number().int().min(0),
   status: z.enum(['draft', 'review', 'final', 'archived']).optional(),
+  version: z.number().int().min(1).optional(),
+});
+
+export const GetDocumentsQuerySchema = z.object({
+  matterId: z.string().uuid().optional(),
 });
 
 export const SaveVersionSchema = z.object({
@@ -49,6 +54,7 @@ export const updateDocumentJsonSchema = {
       content: { type: 'object' },
       wordCount: { type: 'integer', minimum: 0 },
       status: { type: 'string', enum: ['draft', 'review', 'final', 'archived'] },
+      version: { type: 'integer', minimum: 1 },
     },
   },
   params: {
@@ -93,6 +99,8 @@ export const legalDocumentSchema = {
     title: { type: 'string' },
     content: { type: 'object' },
     wordCount: { type: 'integer' },
+    saveCount: { type: 'integer' },
+    version: { type: 'integer' },
     status: { type: 'string', enum: ['draft', 'review', 'final', 'archived'] },
     createdAt: { type: 'string', format: 'date-time' },
     updatedAt: { type: 'string', format: 'date-time' },

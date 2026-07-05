@@ -79,7 +79,8 @@ export async function updateDocument(
     content?: JSONContent;
     wordCount?: number;
     status?: LegalDocument['status'];
-  }
+  },
+  expectedVersion?: number
 ): Promise<LegalDocument> {
   const update: Record<string, unknown> = { updated_at: new Date().toISOString() };
   if (data.title !== undefined) update.title = data.title;
@@ -87,15 +88,27 @@ export async function updateDocument(
   if (data.wordCount !== undefined) update.word_count = data.wordCount;
   if (data.status !== undefined) update.status = data.status;
 
-  const { data: doc, error } = await supabase
+  let query = supabase
     .from('legal_documents')
     .update(update)
     .eq('id', documentId)
-    .eq('firm_id', firmId)
-    .select()
-    .single();
+    .eq('firm_id', firmId);
 
-  if (error) throw new Error('Failed to update document');
+  if (expectedVersion !== undefined) {
+    query = query.eq('version', expectedVersion);
+  }
+
+  const { data: doc, error } = await query.select().single();
+
+  if (error) {
+    if (error.code === 'PGRST116') {
+      const existing = await getDocumentById(supabase, documentId, firmId);
+      if (existing) {
+        throw new Error('CONCURRENCY_CONFLICT');
+      }
+    }
+    throw new Error('Failed to update document: ' + error.message);
+  }
   return mapDocument(doc);
 }
 
@@ -177,6 +190,7 @@ function mapDocument(row: Record<string, unknown>): LegalDocument {
     content: (row.content ?? {}) as JSONContent,
     wordCount: row.word_count as number,
     saveCount: (row.save_count ?? 0) as number,
+    version: (row.version ?? 1) as number,
     status: row.status as LegalDocument['status'],
     createdAt: new Date(row.created_at as string),
     updatedAt: new Date(row.updated_at as string),

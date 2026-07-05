@@ -52,3 +52,22 @@ export const config: Config = {
   gstin: process.env.YOUR_GSTIN || '',
   gstState: process.env.YOUR_STATE || '',
 };
+
+export function validateConfig(): void {
+  const required = [
+    { key: 'JWT_SECRET', value: config.jwtSecret },
+    { key: 'SUPABASE_SERVICE_ROLE_KEY', value: config.supabaseServiceRoleKey },
+    { key: 'RAZORPAY_KEY_ID', value: config.razorpayKeyId },
+    { key: 'RAZORPAY_KEY_SECRET', value: config.razorpayKeySecret },
+    { key: 'RAZORPAY_WEBHOOK_SECRET', value: config.razorpayWebhookSecret },
+    { key: 'DATABASE_URL', value: config.databaseUrl },
+  ];
+
+  const missing = required.filter(item => !item.value);
+  if (missing.length > 0) {
+    throw new Error(
+      `Startup failed: The following environment variables are required but not set: ${missing.map(m => m.key).join(', ')}`
+    );
+  }
+}
+

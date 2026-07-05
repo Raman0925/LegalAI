@@ -16,6 +16,7 @@ import { billingController } from '#domains/billing/billing.controller.js';
 import { onboardingController } from '#domains/onboarding/onboarding.controller.js';
 import fastifySSE from '@fastify/sse';
 import loggerConfig from '#config/loggerConfig.js';
+import { validateConfig } from '#config/index.js';
 import swagger from '@fastify/swagger';
 import swaggerUi from '@fastify/swagger-ui';
 import websocket from '@fastify/websocket';
@@ -34,6 +35,7 @@ const fastify = Fastify({ logger: loggerConfig });
 fastify.decorate('supabase', createSupabaseAdminClient());
 
 const startServer = async () => {
+  validateConfig();
   // ── Security plugins ────────────────────────────────────────────────────────
 
   // Helmet adds HTTP security headers:
@@ -46,7 +48,7 @@ const startServer = async () => {
   await fastify.register(cors, {
     origin: process.env.FRONTEND_URL
       ? [process.env.FRONTEND_URL]
-      : true,              // allow all in dev (FRONTEND_URL not set)
+      : [],              // fail closed (FRONTEND_URL not set)
     allowedHeaders: ['Content-Type', 'Authorization'],
     credentials: true,
   });

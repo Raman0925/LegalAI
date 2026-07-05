@@ -94,6 +94,12 @@ export async function inviteMember(
     throw new Error(seatCheck.reason ?? 'Seat limit reached');
   }
 
+  // Check for existing pending invite
+  const existingInvite = await repo.getPendingInviteByEmail(supabase, firmId, email);
+  if (existingInvite) {
+    throw new Error('A pending invitation already exists for this email address.');
+  }
+
   // Get firm details for email
   const firm = await repo.getFirmById(supabase, firmId);
   if (!firm) throw new Error('Firm not found');

@@ -231,6 +231,12 @@ export const api = {
         history,
         tier,
       }),
+    getHistory: () =>
+      get<{ messages: { role: 'user' | 'assistant'; content: string }[] }>('/chat/history'),
+  },
+  editor: {
+    audit: (prompt: string) =>
+      post<{ text: string }>('/editor/audit', { prompt }),
   },
   documents: {
     list: () => get<DocumentRecord[]>('/documents'),
@@ -298,10 +304,6 @@ export const api = {
       get<{ subscription: { id: string; status: string; trialEndsAt: string | null; gracePeriodEnd: string | null; plan: { displayName: string; priceInr: number; name: string }; currentPeriodEnd: string | null } }>('/billing/subscription'),
     getUsage: () =>
       get<{ usage: { aiCallsToday: number; aiCallsLimit: number; aiCallsPercent: number; documentsTotal: number; documentsLimit: number | null; seatsUsed: number; seatsLimit: number; storageUsedGb: number; storageLimit: number }; plan: { displayName: string } }>('/billing/usage'),
-    subscribe: (planName: string, firmName: string, firmEmail: string) =>
-      post<{ subscriptionId: string; shortUrl: string }>('/billing/subscribe', { planName, firmName, firmEmail }),
-    upgrade: (planName: string) =>
-      post<{ upgradeUrl: string }>('/billing/upgrade', { planName }),
     createOrder: (planName: string, billingCycle: string) =>
       post<{ orderId: string; amount: number; currency: string; keyId: string }>('/billing/orders', { planName, billingCycle }),
     verifyPayment: (data: { razorpay_order_id: string; razorpay_payment_id: string; razorpay_signature: string }) =>

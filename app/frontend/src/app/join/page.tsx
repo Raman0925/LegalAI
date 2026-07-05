@@ -5,6 +5,7 @@ import { useSearchParams, useRouter } from 'next/navigation';
 import { api } from '@/lib/api';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { createBrowserClient } from '@/lib/supabase/client';
 
 export default function JoinPage() {
   return (
@@ -20,11 +21,27 @@ function JoinPageContent() {
   const token = searchParams.get('token');
 
   const [loading, setLoading] = useState(false);
+  const [checkingSession, setCheckingSession] = useState(true);
   const [error, setError] = useState('');
 
-  // Guard: if no token, redirect to login
+  // Guard: if no token, redirect to login; also verify authenticated session
   useEffect(() => {
-    if (!token) router.replace('/login');
+    if (!token) {
+      router.replace('/login');
+      return;
+    }
+    const supabase = createBrowserClient();
+    async function checkSession() {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session) {
+        router.replace(`/login?redirectTo=/join?token=${encodeURIComponent(token || '')}`);
+      } else {
+        setCheckingSession(false);
+      }
+    }
+    checkSession();
   }, [token, router]);
 
   const handleJoin = async () => {
@@ -43,7 +60,7 @@ function JoinPageContent() {
     }
   };
 
-  if (!token) return null;
+  if (!token || checkingSession) return null;
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-50 p-4">

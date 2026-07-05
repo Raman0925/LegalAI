@@ -16,13 +16,13 @@ vi.mock('@/lib/api', () => ({
 }));
 
 describe('JoinPage', () => {
-  it('renders accept invitation button when token is present', () => {
+  it('renders accept invitation button when token is present', async () => {
     render(<JoinPage />);
-    expect(screen.getByRole('button', { name: /accept invitation/i })).toBeInTheDocument();
+    expect(await screen.findByRole('button', { name: /accept invitation/i })).toBeInTheDocument();
   });
 
-  it('renders join page title', () => {
+  it('renders join page title', async () => {
     render(<JoinPage />);
-    expect(screen.getByText(/join your team/i)).toBeInTheDocument();
+    expect(await screen.findByText(/join your team/i)).toBeInTheDocument();
   });
 });

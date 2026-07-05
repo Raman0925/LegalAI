@@ -291,50 +291,6 @@ export async function activateSubscription(
 // ─── Existing functions (preserved from original) ────────────────────────────
 
 /**
- * Create a Razorpay subscription for a firm.
- * Called during firm onboarding after plan selection.
- */
-export async function createRazorpaySubscription(
-  supabase: SupabaseClient,
-  params: {
-    firmId: string;
-    firmName: string;
-    firmEmail: string;
-    planName: string;
-  }
-): Promise<{ subscriptionId: string; shortUrl: string }> {
-  const plan = await repo.getPlanByName(supabase, params.planName);
-  if (!plan) throw new Error('Plan not found');
-  if (!plan.razorpayPlanId) throw new Error('Plan not configured in Razorpay');
-
-  // Create Razorpay subscription
-  const subscription = await getRazorpay().subscriptions.create({
-    plan_id: plan.razorpayPlanId,
-    customer_notify: 1,
-    quantity: 1,
-    total_count: 120,     // 10 years max
-    notes: {
-      firm_id: params.firmId,
-      firm_name: params.firmName,
-    },
-  });
-
-  // Save to DB
-  await repo.createSubscription(supabase, {
-    firmId: params.firmId,
-    planId: plan.id,
-    razorpaySubscriptionId: subscription.id as string,
-    status: 'pending',
-    trialEndsAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000), // 14 day trial
-  });
-
-  return {
-    subscriptionId: subscription.id as string,
-    shortUrl: (subscription as any).short_url as string ?? '',
-  };
-}
-
-/**
  * Start a 14-day trial for a new firm (no payment required).
  */
 export async function startTrial(
@@ -380,27 +336,4 @@ export async function getFirmSubscription(
   firmId: string
 ): Promise<FirmSubscription | null> {
   return repo.getSubscriptionByFirm(supabase, firmId);
-}
-
-/**
- * Generate Razorpay payment link for plan upgrade.
- */
-export async function createUpgradeLink(
-  supabase: SupabaseClient,
-  firmId: string,
-  newPlanName: string
-): Promise<string> {
-  const plan = await repo.getPlanByName(supabase, newPlanName);
-  if (!plan) throw new Error('Plan not found');
-
-  const sub = await repo.getSubscriptionByFirm(supabase, firmId);
-  if (!sub?.razorpaySubscriptionId) throw new Error('No active subscription');
-
-  // Update Razorpay subscription plan
-  await getRazorpay().subscriptions.update(sub.razorpaySubscriptionId, {
-    plan_id: plan.razorpayPlanId!,
-    quantity: 1,
-  } as any);
-
-  return `https://dashboard.razorpay.com/app/subscriptions/${sub.razorpaySubscriptionId}`;
 }

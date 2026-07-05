@@ -60,6 +60,12 @@ vi.mock('../../../utils/ai/streaming-provider.js', () => ({
   }),
 }));
 
+vi.mock('../chat.repository.js', () => ({
+  getOrCreateActiveSession: vi.fn().mockResolvedValue('session-1'),
+  getMessages: vi.fn().mockResolvedValue([]),
+  saveMessage: vi.fn().mockResolvedValue(undefined),
+}));
+
 // Now import the functions to test
 import { sendMessage, streamMessage } from '../chat.service.js';
 import { Message } from '../../../utils/tokens/types.js';
@@ -97,10 +103,10 @@ describe('ChatService', () => {
   });
 
   it('sendMessage retrieves chunks, formats context, and calls provider returning text and usage', async () => {
-    const history: Message[] = [];
-    const result = await sendMessage('hello', history, 'balanced');
+    const mockSupabase = {};
+    const result = await sendMessage(mockSupabase, 'hello', 'balanced', 'user-1', 'firm-1');
 
-    expect(mockRetrieve).toHaveBeenCalledWith('hello', { userId: undefined });
+    expect(mockRetrieve).toHaveBeenCalledWith('hello', 'user-1', 'firm-1');
     expect(mockAssemble).toHaveBeenCalled();
     expect(mockGetModel).toHaveBeenCalledWith('chat', 'cheap');
     expect(mockComplete).toHaveBeenCalled();
@@ -130,6 +136,8 @@ describe('ChatService', () => {
         finalUsage = usage;
       },
       'fast',
+      'user-1',
+      'firm-1',
     );
 
     expect(chunks).toEqual(['Hello ', 'world']);
