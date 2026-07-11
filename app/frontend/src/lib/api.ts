@@ -1,5 +1,6 @@
 import { createBrowserClient } from '@/lib/supabase/client';
 import { ResearchSession, ResearchMessage } from '@/types/research';
+import { BillingOverviewResponse } from '@/types/payment.types';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -312,7 +313,7 @@ export const api = {
     getPaymentHistory: () =>
       get<{ payments: { id: string; razorpayOrderId: string | null; amountPaise: number; currency: string; status: string; paymentMethod: string | null; createdAt: string }[] }>('/billing/payments'),
     getOverview: () =>
-      get<{ subscription: Record<string, unknown> | null; invoices: Record<string, unknown>[]; payments: Record<string, unknown>[] }>('/billing/overview'),
+      get<BillingOverviewResponse>('/billing/overview'),
   },
   // Expose raw helpers for pages that need them
   post,
