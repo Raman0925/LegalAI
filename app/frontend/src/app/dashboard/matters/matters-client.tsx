@@ -12,7 +12,7 @@ interface MattersClientProps {
   initialUser: {
     id: string;
     email: string;
-    user_metadata: Record<string, any>;
+    user_metadata: Record<string, unknown>;
   };
 }
 
@@ -36,7 +36,7 @@ const STATUS_CONFIG: Record<MatterRecord['status'], { label: string; className: 
 
 export function MattersClient({ initialUser }: MattersClientProps) {
   const userProfile = {
-    fullName: initialUser.user_metadata?.full_name || '',
+    fullName: (initialUser.user_metadata?.full_name as string) || '',
     email: initialUser.email,
   };
 
@@ -56,10 +56,10 @@ export function MattersClient({ initialUser }: MattersClientProps) {
     try {
       const list = await api.matters.list();
       setMatters(list);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to load matters',
-        description: err.message || 'Could not fetch legal matters.',
+        description: (err instanceof Error ? err.message : null) || 'Could not fetch legal matters.',
         variant: 'destructive',
       });
     } finally {
@@ -68,6 +68,7 @@ export function MattersClient({ initialUser }: MattersClientProps) {
   }, []);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadMatters();
   }, [loadMatters]);
 
@@ -101,10 +102,10 @@ export function MattersClient({ initialUser }: MattersClientProps) {
       setNewDescription('');
       setShowCreateModal(false);
       loadMatters();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to create matter',
-        description: err.message || 'Please try again.',
+        description: (err instanceof Error ? err.message : null) || 'Please try again.',
         variant: 'destructive',
       });
     } finally {

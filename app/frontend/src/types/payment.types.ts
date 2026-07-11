@@ -31,7 +31,7 @@ export interface RazorpayOptions {
 
 export interface RazorpayInstance {
   open: () => void;
-  on: (event: string, handler: (response: any) => void) => void;
+  on: (event: string, handler: (response: RazorpayFailedResponse) => void) => void;
   close: () => void;
 }
 

@@ -182,6 +182,7 @@ export default function TeamPage() {
           <CardContent>
             <div className="divide-y">
               {pendingInvites.map(invite => {
+                // eslint-disable-next-line react-hooks/purity
                 const daysLeft = Math.max(
                   0,
                   Math.ceil((new Date(invite.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))

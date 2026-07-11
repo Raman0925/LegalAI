@@ -7,7 +7,6 @@ import {
   api,
   type MatterWithDetails,
   type DocumentRecord,
-  type MatterClause,
   type MatterDraft,
 } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
@@ -23,7 +22,6 @@ import {
   Copy,
   Check,
   FileImage,
-  ExternalLink,
   ChevronRight,
   X,
 } from 'lucide-react';
@@ -34,7 +32,7 @@ interface MatterDetailClientProps {
   initialUser: {
     id: string;
     email: string;
-    user_metadata: Record<string, any>;
+    user_metadata: Record<string, unknown>;
   };
 }
 
@@ -48,7 +46,7 @@ const RISK_BADGES: Record<string, string> = {
 
 export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps) {
   const userProfile = {
-    fullName: initialUser.user_metadata?.full_name || '',
+    fullName: (initialUser.user_metadata?.full_name as string) || '',
     email: initialUser.email,
   };
 
@@ -89,10 +87,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
         hasAutoSelectedDraft.current = true;
         setSelectedDraft(data.drafts[0]);
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to load details',
-        description: err.message || 'Could not fetch matter details.',
+        description: (err instanceof Error ? err.message : null) || 'Could not fetch matter details.',
         variant: 'destructive',
       });
     } finally {
@@ -101,6 +99,7 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
   }, [id]); // id is the only real dependency — selectedDraft was causing an infinite loop
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDetails();
   }, [loadDetails]);
 
@@ -109,13 +108,14 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
     try {
       const docs = await api.documents.list();
       setReadyDocs(docs.filter((d) => d.status === 'ready'));
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error('Failed to load library documents:', err);
     }
   }, []);
 
   React.useEffect(() => {
     if (showAttachModal) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       loadReadyDocuments();
     }
   }, [showAttachModal, loadReadyDocuments]);
@@ -127,10 +127,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
       toast({ title: 'Document attached' });
       setShowAttachModal(false);
       loadDetails();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to attach',
-        description: err.message || 'Error occurred.',
+        description: (err instanceof Error ? err.message : null) || 'Error occurred.',
         variant: 'destructive',
       });
     } finally {
@@ -143,10 +143,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
       await api.matters.detachDocument(id, docId);
       toast({ title: 'Document detached' });
       loadDetails();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to detach',
-        description: err.message || 'Error occurred.',
+        description: (err instanceof Error ? err.message : null) || 'Error occurred.',
         variant: 'destructive',
       });
     }
@@ -161,10 +161,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
         description: `Successfully extracted ${clauses.length} clauses from attached documents.`,
       });
       loadDetails();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Extraction failed',
-        description: err.message || 'Error occurred.',
+        description: (err instanceof Error ? err.message : null) || 'Error occurred.',
         variant: 'destructive',
       });
     } finally {
@@ -195,10 +195,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
       setDraftInstructions('');
       setSelectedDraft(draft);
       loadDetails();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Generation failed',
-        description: err.message || 'Error occurred.',
+        description: (err instanceof Error ? err.message : null) || 'Error occurred.',
         variant: 'destructive',
       });
     } finally {
@@ -215,10 +215,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
         setSelectedDraft(null);
       }
       loadDetails();
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Delete failed',
-        description: err.message || 'Could not delete draft.',
+        description: (err instanceof Error ? err.message : null) || 'Could not delete draft.',
         variant: 'destructive',
       });
     } finally {
@@ -236,10 +236,10 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
         await api.matters.exportDocx(id, details.title);
       }
       toast({ title: 'Export downloaded' });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Export failed',
-        description: err.message || 'Could not export matter.',
+        description: (err instanceof Error ? err.message : null) || 'Could not export matter.',
         variant: 'destructive',
       });
     } finally {
@@ -313,7 +313,7 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
               <h1 className="text-2xl md:text-3xl font-extrabold tracking-tight text-white">
                 {details.title}
               </h1>
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20 uppercase tracking-wide">
+              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-bold bg-violet-500/10 text-violet-400 border border-violet-500/20">
                 {details.matterType}
               </span>
             </div>
@@ -531,7 +531,7 @@ export function MatterDetailClient({ id, initialUser }: MatterDetailClientProps)
                       <label className="text-xs font-semibold text-zinc-400">Draft Type</label>
                       <select
                         value={draftType}
-                        onChange={(e) => setDraftType(e.target.value as any)}
+                        onChange={(e) => setDraftType(e.target.value as 'contract' | 'letter' | 'memo' | 'clause')}
                         className="w-full bg-zinc-950 border border-zinc-800 rounded-lg px-3.5 py-2 text-sm text-zinc-200 focus:outline-none focus:border-zinc-700 transition-colors"
                       >
                         <option value="contract">Full Contract</option>

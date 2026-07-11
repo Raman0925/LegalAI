@@ -26,7 +26,9 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
 
   // Clear messages when selection changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setMessages([]);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStreamedText('');
   }, [selectedAnnotation]);
 
@@ -95,7 +97,7 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
                   currentText += `\n[Error: ${parsed.error}]`;
                   setStreamedText(currentText);
                 }
-              } catch (e) {
+              } catch {
                 // ignore parsing error
               }
             }

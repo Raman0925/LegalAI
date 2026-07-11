@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { TipTapEditor } from '@/components/editor/TipTapEditor';
 import { VersionHistory } from '@/components/editor/VersionHistory';
@@ -8,7 +8,6 @@ import { ClauseLibrary } from '@/components/editor/ClauseLibrary';
 import { LegalDocument } from '@/types/editor';
 import { JSONContent, Editor } from '@tiptap/react';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 import { ChevronLeft, Download, History, ListTodo, Loader2 } from 'lucide-react';
 
 import { getAuthHeaders } from '@/lib/api';
@@ -23,7 +22,6 @@ export default function EditorDetailPage() {
   const [saveStatus, setSaveStatus] = useState<'saved' | 'saving' | 'unsaved'>('saved');
   const [panelView, setPanelView] = useState<PanelView>('none');
   const [activeEditor, setActiveEditor] = useState<Editor | null>(null);
-  const saveCountRef = useRef(0);
 
   // Fetch document details on mount
   useEffect(() => {
@@ -43,8 +41,8 @@ export default function EditorDetailPage() {
         } else {
           if (!signal.aborted) router.push('/editor');
         }
-      } catch (err: any) {
-        if (err.name === 'AbortError') return;
+      } catch (err: unknown) {
+        if ((err as Error).name === 'AbortError') return;
         console.error(err);
         if (!signal.aborted) router.push('/editor');
       }
@@ -177,7 +175,7 @@ export default function EditorDetailPage() {
           </h1>
           <select
             value={legalDoc.status}
-            onChange={(e) => handleStatusChange(e.target.value as any)}
+            onChange={(e) => handleStatusChange(e.target.value as LegalDocument['status'])}
             className="text-xs bg-zinc-950 border border-zinc-800 text-zinc-300 rounded px-2 py-1 focus:outline-none focus:border-violet-500 capitalize"
           >
             <option value="draft">Draft</option>

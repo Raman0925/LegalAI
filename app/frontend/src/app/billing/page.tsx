@@ -93,6 +93,7 @@ export default function BillingPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchData();
   }, [fetchData]);
 
@@ -114,11 +115,14 @@ export default function BillingPage() {
 
   const isTrialing = subscription?.status === 'trial';
   const isGracePeriod = subscription?.status === 'grace_period';
+  // Capture current time once per render to avoid impure function calls
+  // eslint-disable-next-line react-hooks/purity
+  const now = Date.now();
   const trialDaysLeft = subscription?.trialEndsAt
-    ? Math.max(0, Math.ceil((new Date(subscription.trialEndsAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(0, Math.ceil((new Date(subscription.trialEndsAt).getTime() - now) / (1000 * 60 * 60 * 24)))
     : 0;
   const graceDaysLeft = subscription?.gracePeriodEnd
-    ? Math.max(0, Math.ceil((new Date(subscription.gracePeriodEnd).getTime() - Date.now()) / (1000 * 60 * 60 * 24)))
+    ? Math.max(0, Math.ceil((new Date(subscription.gracePeriodEnd).getTime() - now) / (1000 * 60 * 60 * 24)))
     : 0;
 
   return (

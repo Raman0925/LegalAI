@@ -8,7 +8,6 @@ import { toast } from '@/hooks/use-toast';
 import { Button } from '@/components/ui/button';
 import { ResearchSession } from '@/types/research';
 import {
-  Search,
   Plus,
   Loader2,
   BookOpen,
@@ -37,7 +36,7 @@ export default function ResearchPage() {
         // Fetch research sessions
         const res = await api.research.list();
         setSessions(res.sessions || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to load research data:', err);
         toast({
           title: 'Connection Error',
@@ -66,10 +65,10 @@ export default function ResearchPage() {
         description: 'Launching research workspace...',
       });
       router.push(`/research/${data.session.id}`);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Creation Failed',
-        description: err.message || 'Failed to start research session.',
+        description: (err instanceof Error ? err.message : null) || 'Failed to start research session.',
         variant: 'destructive',
       });
     } finally {

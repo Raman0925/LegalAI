@@ -3,10 +3,8 @@
 import * as React from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import { Sidebar } from '@/components/layout/Sidebar';
-import { api, API_BASE, getAuthHeaders } from '@/lib/api';
-import { createBrowserClient } from '@/lib/supabase/client';
+import { api, getAuthHeaders } from '@/lib/api';
 import { toast } from '@/hooks/use-toast';
-import { Button } from '@/components/ui/button';
 import { ResearchMessage, ResearchCitation } from '@/types/research';
 import {
   Send,
@@ -56,11 +54,11 @@ export default function ResearchSessionPage() {
         setSessionTitle(res.session.title);
         setSessionQuery(res.session.query);
         setMessages(res.messages || []);
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to load session details:', err);
         toast({
           title: 'Session Error',
-          description: err.message || 'Failed to fetch session messages.',
+          description: (err instanceof Error ? err.message : null) || 'Failed to fetch session messages.',
           variant: 'destructive',
         });
         router.push('/research');
@@ -139,7 +137,7 @@ export default function ResearchSessionPage() {
       const decoder = new TextDecoder();
       let fullText = '';
       let streamBuffer = '';
-      let streamCitations: ResearchCitation[] = [];
+      const streamCitations: ResearchCitation[] = [];
 
       while (true) {
         const { done, value } = await reader.read();
@@ -179,15 +177,15 @@ export default function ResearchSessionPage() {
               setStreaming(false);
               return;
             }
-          } catch (jsonErr) {
+          } catch {
             // Skip malformed chunk parsing
           }
         }
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Query Failed',
-        description: err.message || 'Stream connection closed unexpectedly.',
+        description: (err instanceof Error ? err.message : null) || 'Stream connection closed unexpectedly.',
         variant: 'destructive',
       });
       setStreaming(false);
@@ -335,8 +333,8 @@ export default function ResearchSessionPage() {
                           </div>
                         )}
 
-                        <p className="text-[11px] text-zinc-400 leading-relaxed font-sans line-clamp-4 italic border-l-2 border-zinc-800 pl-2">
-                          "{c.chunkPreview}"
+                    <p className="text-[11px] text-zinc-400 leading-relaxed font-sans line-clamp-4 italic border-l-2 border-zinc-800 pl-2">
+                      &ldquo;{c.chunkPreview}&rdquo;
                         </p>
 
                         <div className="flex justify-between items-center text-[10px] text-zinc-500 font-semibold pt-1">

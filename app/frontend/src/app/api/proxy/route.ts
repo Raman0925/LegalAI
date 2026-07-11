@@ -63,7 +63,7 @@ async function handleProxy(request: NextRequest) {
   });
 
   const method = request.method;
-  let body: any = null;
+  let body: FormData | string | null = null;
 
   if (['POST', 'PUT', 'PATCH'].includes(method)) {
     const contentType = request.headers.get('content-type') || '';
@@ -122,10 +122,11 @@ async function handleProxy(request: NextRequest) {
       statusText: res.statusText,
       headers: resHeaders,
     });
-  } catch (err: any) {
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : 'Proxy request failed';
     console.error(`Proxy request failed to ${url}:`, err);
     return NextResponse.json(
-      { error: `Proxy request failed: ${err.message}` },
+      { error: `Proxy request failed: ${message}` },
       { status: 500 }
     );
   }

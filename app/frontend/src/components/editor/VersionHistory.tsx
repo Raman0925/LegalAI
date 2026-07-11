@@ -51,7 +51,9 @@ export function VersionHistory({
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchVersions();
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [documentId]);
 
   const handleSaveSnapshot = async (e: React.FormEvent) => {

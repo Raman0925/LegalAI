@@ -34,6 +34,7 @@ export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
         });
         if (res.ok) {
           const data = await res.json();
+          // eslint-disable-next-line react-hooks/set-state-in-effect
           setContracts(data.contracts || []);
         }
       } catch (err) {
@@ -57,6 +58,7 @@ export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
       });
       if (res.ok) {
         const data = await res.json();
+        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAnnotations(data.annotations || []);
       }
     } catch (err) {
@@ -207,7 +209,7 @@ export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
 
                   {/* Snippet */}
                   <p className="text-[10px] text-gray-600 line-clamp-3 bg-white border rounded p-1 mb-2 font-mono italic">
-                    "{a.clauseText}"
+                    &ldquo;{a.clauseText}&rdquo;
                   </p>
 
                   {/* Actions */}

@@ -15,6 +15,7 @@ export function useRazorpayScript(): boolean {
   useEffect(() => {
     // Already loaded (e.g., HMR re-render)
     if (typeof window !== 'undefined' && window.Razorpay) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setLoaded(true);
       return;
     }

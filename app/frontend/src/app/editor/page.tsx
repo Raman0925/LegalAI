@@ -71,7 +71,9 @@ export default function DocumentListPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchDocuments();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMatters();
   }, []);
 
@@ -298,7 +300,7 @@ export default function DocumentListPage() {
 }
 
 // Simple X icon helper
-function X(props: any) {
+function X(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}

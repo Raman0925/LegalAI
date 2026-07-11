@@ -14,7 +14,7 @@ export function GoogleSignInButton() {
     setIsLoading(true);
 
     const supabase = createBrowserClient();
-    let timeoutId: any;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
 
     try {
       const timeoutPromise = new Promise<never>((_, reject) => {
@@ -40,10 +40,11 @@ export function GoogleSignInButton() {
         });
         return;
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       if (timeoutId) clearTimeout(timeoutId);
       setIsLoading(false);
-      if (err.message === 'Sign-In Timeout') {
+      const message = err instanceof Error ? err.message : '';
+      if (message === 'Sign-In Timeout') {
         toast({
           title: 'Sign-In Timeout',
           description: 'The authentication request timed out. Please try again.',
@@ -52,7 +53,7 @@ export function GoogleSignInButton() {
       } else {
         toast({
           title: 'Connection Error',
-          description: err.message || 'A network error occurred. Please try again.',
+          description: message || 'A network error occurred. Please try again.',
           variant: 'destructive',
         });
       }

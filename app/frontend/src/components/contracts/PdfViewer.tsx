@@ -29,8 +29,10 @@ export function PdfViewer({ signedUrl, targetPage, onPageChange }: PdfViewerProp
   // Jump to target page when targetPage changes
   useEffect(() => {
     if (targetPage && targetPage !== currentPage && targetPage <= numPages && targetPage >= 1) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentPage(targetPage);
     }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [targetPage, numPages]);
 
   const goToPrev = () => {

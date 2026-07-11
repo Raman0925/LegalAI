@@ -49,10 +49,10 @@ export function UploadDropzone({ onUploaded }: UploadDropzoneProps) {
         await api.documents.upload(file, setProgress);
         toast({ title: 'Upload started', description: `${file.name} is being processed.` });
         onUploaded();
-      } catch (err: any) {
+      } catch (err: unknown) {
         toast({
           title: 'Upload failed',
-          description: err.message || 'Failed to upload document.',
+          description: (err instanceof Error ? err.message : null) || 'Failed to upload document.',
           variant: 'destructive',
         });
       } finally {

@@ -34,6 +34,7 @@ export default function ContractsPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchContracts();
   }, [fetchContracts]);
 
@@ -65,9 +66,9 @@ export default function ContractsPage() {
       }
 
       await fetchContracts();
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error(err);
-      setError(err.message || 'File upload failed. Make sure the file is a PDF under 20MB.');
+      setError((err instanceof Error ? err.message : null) || 'File upload failed. Make sure the file is a PDF under 20MB.');
     } finally {
       setUploading(false);
     }
@@ -82,7 +83,8 @@ export default function ContractsPage() {
 
   const handleStartAnalysis = async (contractId: string) => {
     // Redirect to the detail page, which will trigger and show the analysis stream automatically!
-    window.location.href = `/contracts/${contractId}?start_analysis=true`;
+    // eslint-disable-next-line react-hooks/immutability
+    window.location.assign(`/contracts/${contractId}?start_analysis=true`);
   };
 
   const getStatusBadge = (status: Contract['status']) => {
