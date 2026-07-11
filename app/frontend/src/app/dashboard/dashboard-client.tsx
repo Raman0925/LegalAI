@@ -11,7 +11,6 @@ import {
   Loader2,
   CheckCircle,
   Database,
-  ShieldAlert,
   Sparkles,
   User,
   Compass,
@@ -22,7 +21,7 @@ interface DashboardClientProps {
   initialUser: {
     id: string;
     email: string;
-    user_metadata: Record<string, any>;
+    user_metadata: Record<string, unknown>;
   };
 }
 
@@ -38,8 +37,8 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
   const [userProfile, setUserProfile] = React.useState({
     id: initialUser.id,
     email: initialUser.email,
-    fullName: initialUser.user_metadata?.full_name || '',
-    avatarUrl: initialUser.user_metadata?.avatar_url || '',
+    fullName: (initialUser.user_metadata?.full_name as string) || '',
+    avatarUrl: (initialUser.user_metadata?.avatar_url as string) || '',
   });
 
   // Profile Form States
@@ -87,7 +86,7 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
           avatarUrl: data.avatar_url || '',
         });
         setEditingName(data.full_name || '');
-      } catch (err: any) {
+      } catch (err: unknown) {
         console.error('Failed to load full profile:', err);
       }
     }
@@ -100,7 +99,7 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
       try {
         const data = await api.chat.getHistory();
         if (data.messages && data.messages.length > 0) {
-          setMessages(data.messages as any);
+          setMessages(data.messages as ChatMessage[]);
         }
       } catch (err) {
         console.error('Failed to load chat history:', err);
@@ -119,10 +118,10 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
         title: 'Profile Updated',
         description: 'Your profile settings have been saved successfully.',
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Update Failed',
-        description: err.message || 'Failed to update profile details.',
+        description: (err instanceof Error ? err.message : null) || 'Failed to update profile details.',
         variant: 'destructive',
       });
     } finally {
@@ -156,10 +155,10 @@ export function DashboardClient({ initialUser }: DashboardClientProps) {
           };
         });
       }
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Chat Error',
-        description: err.message || 'Failed to send message to LegalAI.',
+        description: (err instanceof Error ? err.message : null) || 'Failed to send message to LegalAI.',
         variant: 'destructive',
       });
       setMessages((prev) => [
@@ -207,10 +206,10 @@ ${documentText}`;
         risks: Array.isArray(parsed.risks) ? parsed.risks : [],
         obligations: Array.isArray(parsed.obligations) ? parsed.obligations : [],
       });
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Review Failed',
-        description: err.message || 'Failed to complete document analysis.',
+        description: (err instanceof Error ? err.message : null) || 'Failed to complete document analysis.',
         variant: 'destructive',
       });
     } finally {

@@ -28,6 +28,7 @@ export default function TeamPage() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [members, setMembers] = useState<Member[]>([]);
   const [pendingInvites, setPendingInvites] = useState<PendingInvite[]>([]);
+  const [currentTime] = useState(() => Date.now());
   const [inviteEmail, setInviteEmail] = useState('');
   const [loading, setLoading] = useState(true);
   const [inviting, setInviting] = useState(false);
@@ -182,10 +183,9 @@ export default function TeamPage() {
           <CardContent>
             <div className="divide-y">
               {pendingInvites.map(invite => {
-                // eslint-disable-next-line react-hooks/purity
                 const daysLeft = Math.max(
                   0,
-                  Math.ceil((new Date(invite.expiresAt).getTime() - Date.now()) / (1000 * 60 * 60 * 24))
+                  Math.ceil((new Date(invite.expiresAt).getTime() - currentTime) / (1000 * 60 * 60 * 24))
                 );
                 return (
                   <div key={invite.id} className="flex items-center justify-between py-3">

@@ -26,10 +26,10 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
 
   // Clear messages when selection changes
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    /* eslint-disable react-hooks/set-state-in-effect */
     setMessages([]);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     setStreamedText('');
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [selectedAnnotation]);
 
   const scrollToBottom = () => {

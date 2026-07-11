@@ -15,7 +15,7 @@ vi.mock('@/hooks/use-toast', () => ({
 
 describe('GoogleSignInButton', () => {
   let mockSignInWithOAuth = vi.fn();
-  let mockSupabase: any;
+  let mockSupabase: { auth: { signInWithOAuth: typeof mockSignInWithOAuth } };
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -27,7 +27,7 @@ describe('GoogleSignInButton', () => {
         signInWithOAuth: mockSignInWithOAuth,
       },
     };
-    (createBrowserClient as any).mockReturnValue(mockSupabase);
+    vi.mocked(createBrowserClient).mockReturnValue(mockSupabase as never);
   });
 
   afterEach(() => {
@@ -41,7 +41,7 @@ describe('GoogleSignInButton', () => {
   });
 
   it('prevents double-clicks and enters loading state', async () => {
-    let resolvePromise: any;
+    let resolvePromise: (value?: unknown) => void;
     const slowPromise = new Promise((resolve) => {
       resolvePromise = resolve;
     });

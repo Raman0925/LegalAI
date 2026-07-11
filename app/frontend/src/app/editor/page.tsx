@@ -71,10 +71,10 @@ export default function DocumentListPage() {
   };
 
   useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    /* eslint-disable react-hooks/set-state-in-effect */
     fetchDocuments();
-    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchMatters();
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const handleCreateDocument = async (e: React.FormEvent) => {

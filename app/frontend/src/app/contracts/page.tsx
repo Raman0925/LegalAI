@@ -83,7 +83,6 @@ export default function ContractsPage() {
 
   const handleStartAnalysis = async (contractId: string) => {
     // Redirect to the detail page, which will trigger and show the analysis stream automatically!
-    // eslint-disable-next-line react-hooks/immutability
     window.location.assign(`/contracts/${contractId}?start_analysis=true`);
   };
 

@@ -34,7 +34,6 @@ export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
         });
         if (res.ok) {
           const data = await res.json();
-          // eslint-disable-next-line react-hooks/set-state-in-effect
           setContracts(data.contracts || []);
         }
       } catch (err) {
@@ -58,7 +57,6 @@ export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
       });
       if (res.ok) {
         const data = await res.json();
-        // eslint-disable-next-line react-hooks/set-state-in-effect
         setAnnotations(data.annotations || []);
       }
     } catch (err) {
