@@ -26,8 +26,10 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
 
   // Clear messages when selection changes
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     setMessages([]);
     setStreamedText('');
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, [selectedAnnotation]);
 
   const scrollToBottom = () => {
@@ -95,7 +97,7 @@ export function ClausePanel({ contractId, selectedAnnotation, activePage }: Clau
                   currentText += `\n[Error: ${parsed.error}]`;
                   setStreamedText(currentText);
                 }
-              } catch (e) {
+              } catch {
                 // ignore parsing error
               }
             }

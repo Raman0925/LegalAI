@@ -65,7 +65,7 @@ export function usePayment() {
         };
 
         const rzp = new window.Razorpay(options);
-        rzp.on('payment.failed', (response: any) => reject(response.error));
+        rzp.on('payment.failed', (response: { error: { code: string; description?: string } }) => reject(response.error));
         rzp.open();
       });
 
@@ -79,9 +79,10 @@ export function usePayment() {
 
       setState('success');
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       // User cancelled — go back to idle without error
-      if (err?.code === 'PAYMENT_CANCELLED') {
+      const maybeErr = err as { code?: string; description?: string; message?: string };
+      if (maybeErr?.code === 'PAYMENT_CANCELLED') {
         setState('idle');
         setError(null);
         isProcessing.current = false;
@@ -90,8 +91,8 @@ export function usePayment() {
 
       setState('failed');
       setError(
-        err?.description ??
-        err?.message ??
+        maybeErr?.description ??
+        maybeErr?.message ??
         'Payment failed. Please try again.'
       );
     } finally {

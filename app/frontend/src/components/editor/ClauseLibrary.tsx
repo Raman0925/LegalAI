@@ -207,7 +207,7 @@ export function ClauseLibrary({ editor, onClose }: ClauseLibraryProps) {
 
                   {/* Snippet */}
                   <p className="text-[10px] text-gray-600 line-clamp-3 bg-white border rounded p-1 mb-2 font-mono italic">
-                    "{a.clauseText}"
+                    &ldquo;{a.clauseText}&rdquo;
                   </p>
 
                   {/* Actions */}

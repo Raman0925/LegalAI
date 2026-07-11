@@ -134,7 +134,7 @@ export function AnnotationSidebar({
                     Exact Clause Text
                   </span>
                   <p className="text-[10px] text-gray-600 font-mono italic line-clamp-2">
-                    "{annotation.clauseText}"
+                    &ldquo;{annotation.clauseText}&rdquo;
                   </p>
                 </div>
 

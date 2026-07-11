@@ -14,7 +14,7 @@ interface DocumentsClientProps {
   initialUser: {
     id: string;
     email: string;
-    user_metadata: Record<string, any>;
+    user_metadata: Record<string, unknown>;
   };
 }
 
@@ -22,7 +22,7 @@ const POLL_INTERVAL_MS = 3000;
 
 export function DocumentsClient({ initialUser }: DocumentsClientProps) {
   const userProfile = {
-    fullName: initialUser.user_metadata?.full_name || '',
+    fullName: (initialUser.user_metadata?.full_name as string) || '',
     email: initialUser.email,
   };
 
@@ -36,10 +36,10 @@ export function DocumentsClient({ initialUser }: DocumentsClientProps) {
     try {
       const docs = await api.documents.list();
       setDocuments(docs);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Failed to load documents',
-        description: err.message || 'Could not reach the document service.',
+        description: (err instanceof Error ? err.message : null) || 'Could not reach the document service.',
         variant: 'destructive',
       });
     } finally {
@@ -48,6 +48,7 @@ export function DocumentsClient({ initialUser }: DocumentsClientProps) {
   }, []);
 
   React.useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadDocuments();
   }, [loadDocuments]);
 
@@ -101,10 +102,10 @@ export function DocumentsClient({ initialUser }: DocumentsClientProps) {
       if (selectedDocument?.id === pendingDelete.id) setSelectedDocument(null);
       toast({ title: 'Document deleted', description: `${pendingDelete.name} has been removed.` });
       setPendingDelete(null);
-    } catch (err: any) {
+    } catch (err: unknown) {
       toast({
         title: 'Delete failed',
-        description: err.message || 'Failed to delete document.',
+        description: (err instanceof Error ? err.message : null) || 'Failed to delete document.',
         variant: 'destructive',
       });
     } finally {

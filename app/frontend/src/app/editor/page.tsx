@@ -71,8 +71,10 @@ export default function DocumentListPage() {
   };
 
   useEffect(() => {
+    /* eslint-disable react-hooks/set-state-in-effect */
     fetchDocuments();
     fetchMatters();
+    /* eslint-enable react-hooks/set-state-in-effect */
   }, []);
 
   const handleCreateDocument = async (e: React.FormEvent) => {
@@ -298,7 +300,7 @@ export default function DocumentListPage() {
 }
 
 // Simple X icon helper
-function X(props: any) {
+function X(props: React.SVGProps<SVGSVGElement>) {
   return (
     <svg
       {...props}

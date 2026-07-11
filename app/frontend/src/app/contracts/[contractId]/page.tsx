@@ -31,8 +31,9 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
   // Analysis state
   const [analyzing, setAnalyzing] = useState(false);
   const [analysisProgress, setAnalysisProgress] = useState(0);
-  const [analysisMessage, setAnalysisMessage] = useState('');
   const hasTriggeredAnalysis = useRef(false);
+  // Forward-ref so loadContractData can call startAnalysis before it is declared
+  const startAnalysisRef = useRef<((signal?: AbortSignal) => Promise<void>) | null>(null);
 
   // Load contract info & initial annotations
   const loadContractData = async (signal: AbortSignal) => {
@@ -69,10 +70,10 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
       const triggerQuery = searchParams.get('start_analysis') === 'true';
 
       if ((triggerQuery || contractData.status === 'uploaded' || contractData.status === 'processing') && !hasTriggeredAnalysis.current) {
-        startAnalysis(signal);
+        startAnalysisRef.current?.(signal);
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if ((err as Error).name === 'AbortError') return;
       console.error(err);
       setError('Could not load contract details.');
     } finally {
@@ -82,10 +83,12 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
 
   useEffect(() => {
     const controller = new AbortController();
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadContractData(controller.signal);
     return () => {
       controller.abort();
     };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contractId]);
 
   // SSE analysis stream
@@ -93,7 +96,6 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
     if (analyzing) return;
     setAnalyzing(true);
     setAnalysisProgress(5);
-    setAnalysisMessage('Initializing connection...');
     hasTriggeredAnalysis.current = true;
 
     // Reset annotations before starting
@@ -133,7 +135,6 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
                 const parsed = JSON.parse(dataStr);
                 if (parsed.type === 'progress') {
                   setAnalysisProgress(parsed.progress ?? 0);
-                  setAnalysisMessage(parsed.message ?? 'Analyzing...');
                 } else if (parsed.type === 'annotation') {
                   setAnnotations((prev) => {
                     // Avoid duplicate annotations
@@ -143,7 +144,6 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
                 } else if (parsed.type === 'done') {
                   setAnalyzing(false);
                   setAnalysisProgress(100);
-                  setAnalysisMessage('Complete!');
                   // Refresh contract info to update status to ready
                   const latestAuthHeaders = await getAuthHeaders();
                   const cRes = await fetch(`/api/proxy?path=/contracts/${contractId}`, {
@@ -159,20 +159,26 @@ export default function ContractReviewPage({ params }: ContractPageProps) {
                 } else if (parsed.type === 'error') {
                   throw new Error(parsed.error || 'AI analysis failed');
                 }
-              } catch (e) {
+              } catch {
                 // ignore syntax parsing errors for partial lines
               }
             }
           }
         }
       }
-    } catch (err: any) {
-      if (err.name === 'AbortError') return;
+    } catch (err: unknown) {
+      if ((err as Error).name === 'AbortError') return;
       console.error(err);
-      setError(err.message || 'AI analysis failed or stream disconnected.');
+      setError((err as Error).message || 'AI analysis failed or stream disconnected.');
       setAnalyzing(false);
     }
   };
+
+  // Keep the ref synced with the latest startAnalysis after each render
+  // (must be in an effect, not top-level render, to satisfy react-hooks/refs)
+  useEffect(() => {
+    startAnalysisRef.current = startAnalysis;
+  });
 
   // Click on annotation jumps to page
   const handleSelectAnnotation = (annotation: ContractAnnotation) => {

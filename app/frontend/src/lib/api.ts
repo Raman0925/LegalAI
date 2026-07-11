@@ -1,5 +1,6 @@
 import { createBrowserClient } from '@/lib/supabase/client';
 import { ResearchSession, ResearchMessage } from '@/types/research';
+import { BillingOverviewResponse } from '@/types/payment.types';
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL ?? 'http://localhost:3000';
 
@@ -47,6 +48,7 @@ async function post<T>(path: string, body: unknown): Promise<T> {
 
 // For POST endpoints that return 204 No Content (e.g. attachDocument)
 // Using post<T> on a 204 would call res.json() on an empty body and throw.
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
 async function postEmpty(path: string, body: unknown): Promise<void> {
   const headers = await getAuthHeaders();
   const res = await fetch(`${API_BASE}${path}`, {
@@ -311,7 +313,7 @@ export const api = {
     getPaymentHistory: () =>
       get<{ payments: { id: string; razorpayOrderId: string | null; amountPaise: number; currency: string; status: string; paymentMethod: string | null; createdAt: string }[] }>('/billing/payments'),
     getOverview: () =>
-      get<{ subscription: any; invoices: any[]; payments: any[] }>('/billing/overview'),
+      get<BillingOverviewResponse>('/billing/overview'),
   },
   // Expose raw helpers for pages that need them
   post,
