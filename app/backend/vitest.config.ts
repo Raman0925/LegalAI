@@ -8,6 +8,7 @@ export default defineConfig({
     env: {
       COHERE_API_KEY: 'test-cohere-api-key',
       ANTHROPIC_API_KEY: 'test-anthropic-api-key',
+      OPENAI_API_KEY: 'test-openai-api-key',
     },
   },
 });
