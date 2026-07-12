@@ -45,16 +45,10 @@ const startServer = async () => {
   });
 
   await fastify.register(cors, {
-    origin: process.env.FRONTEND_URL
-      ? [process.env.FRONTEND_URL]
-      : [],              // fail closed (FRONTEND_URL not set)
-    allowedHeaders: [
-      'Content-Type',
-      'Authorization',
-      'X-Request-ID',
-      'x-razorpay-signature',
-    ],
+    origin: ['https://rasind.tech', 'https://www.rasind.tech', 'http://localhost:3000', 'http://localhost:3001'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Request-ID', 'x-razorpay-signature'],
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   });
 
   // Global rate limit: 200 req/min per IP
@@ -88,18 +82,22 @@ const startServer = async () => {
 
   // ── Global middleware hooks ─────────────────────────────────────────────────
   fastify.addHook('onRequest', requestContextMiddleware);
-  fastify.addHook('preHandler', authMiddleware);
+  fastify.addHook('preHandler', async (request, reply) => {
+    if (request.method === 'OPTIONS') return;
+    if (request.routeOptions.config?.public) return;
+    return authMiddleware(request, reply);
+  });
 
   // ── Domain routes ───────────────────────────────────────────────────────────
   fastify.register(healthController);
-  fastify.register(userController,      { prefix: '/auth' });
-  fastify.register(chatController,      { prefix: '/chat' });
-  fastify.register(documentController,  { prefix: '/documents' });
-  fastify.register(matterController,    { prefix: '/matters' });
-  fastify.register(researchController,  { prefix: '/api' });
+  fastify.register(userController, { prefix: '/auth' });
+  fastify.register(chatController, { prefix: '/chat' });
+  fastify.register(documentController, { prefix: '/documents' });
+  fastify.register(matterController, { prefix: '/matters' });
+  fastify.register(researchController, { prefix: '/api' });
   fastify.register(contractsController, { prefix: '/contracts' });
-  fastify.register(editorController,    { prefix: '/editor' });
-  fastify.register(billingController,   { prefix: '/billing' });
+  fastify.register(editorController, { prefix: '/editor' });
+  fastify.register(billingController, { prefix: '/billing' });
   fastify.register(onboardingController, { prefix: '/onboarding' });
 
   // ── Global error handler ────────────────────────────────────────────────────
@@ -121,7 +119,7 @@ const startServer = async () => {
   };
 
   process.on('SIGTERM', () => shutdown('SIGTERM'));
-  process.on('SIGINT',  () => shutdown('SIGINT'));
+  process.on('SIGINT', () => shutdown('SIGINT'));
 
   // ── Start listening ─────────────────────────────────────────────────────────
   try {

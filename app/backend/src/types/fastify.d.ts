@@ -3,6 +3,10 @@ import { SupabaseClient } from '@supabase/supabase-js';
 import { FirmSubscription } from '../domains/billing/billing.types.js';
 
 declare module 'fastify' {
+  interface FastifyContextConfig {
+    public?: boolean;
+  }
+
   interface FastifyInstance {
     pg: pg.Pool;
     supabase: SupabaseClient;
