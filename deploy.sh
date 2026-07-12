@@ -88,7 +88,12 @@ fi
 pm2 save
 
 # ── 5. Health check — verify the app actually came back up ──────────────────
-# Wait up to 30 seconds for the server to accept connections.
+# Give the process a head start before probing — connecting to the DB pool
+# and Supabase takes a few seconds and an immediate curl just wastes retries.
+log "Giving the server 30s to finish connecting to the server/DB before probing..."
+sleep 30
+
+# Wait up to 30 more seconds for the server to accept connections.
 # We probe /health (real endpoint in health.controller.ts) which returns:
 #   200 → { status: "UP", services: { database: { status: "UP" } } }
 #   503 → database unreachable but app is running (still a "partial" health)
