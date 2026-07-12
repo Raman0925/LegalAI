@@ -23,7 +23,10 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20.x
+          # Node 22 required: @supabase/supabase-js realtime-js needs native
+          # globalThis.WebSocket, which is only stable in Node 22+. Node 20
+          # causes silent Supabase Realtime connection failures at runtime.
+          node-version: 22.x
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
