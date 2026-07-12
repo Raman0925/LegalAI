@@ -44,12 +44,16 @@ const startServer = async () => {
     contentSecurityPolicy: false, // disabled — API server, no HTML served
   });
 
-  // CORS: restrict to our frontend origin in production
   await fastify.register(cors, {
     origin: process.env.FRONTEND_URL
       ? [process.env.FRONTEND_URL]
       : [],              // fail closed (FRONTEND_URL not set)
-    allowedHeaders: ['Content-Type', 'Authorization'],
+    allowedHeaders: [
+      'Content-Type',
+      'Authorization',
+      'X-Request-ID',
+      'x-razorpay-signature',
+    ],
     credentials: true,
   });
 
