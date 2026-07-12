@@ -15,9 +15,9 @@
 set -euo pipefail   # -e: exit on any error  -u: treat unset vars as errors  -o pipefail: catch pipe failures
 
 # ── Configuration — edit these to match your VPS ────────────────────────────
-REPO_DIR="/home/deploy/LegalAI"        # ← CHANGE THIS to your VPS repo path
+REPO_DIR="/var/www/legalai"
 APP_DIR="$REPO_DIR/app/backend"
-PM2_NAME="legalai-backend"             # ← CHANGE THIS to your pm2 process name
+PM2_NAME="legalai-api"
 PORT="${PORT:-5000}"                   # ← must match PORT in your server .env
 
 # ── Colours for readable logs ────────────────────────────────────────────────

@@ -23,10 +23,12 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
+          # Read the Node version from .nvmrc at the repo root.
+          # Single source of truth: bump .nvmrc and CI + local dev stay in sync.
           # Node 22 required: @supabase/supabase-js realtime-js needs native
-          # globalThis.WebSocket, which is only stable in Node 22+. Node 20
-          # causes silent Supabase Realtime connection failures at runtime.
-          node-version: 22.x
+          # globalThis.WebSocket, only stable in Node 22+. Node 20 causes
+          # silent Supabase Realtime connection failures at runtime.
+          node-version-file: '.nvmrc'
           cache: 'npm'
           cache-dependency-path: package-lock.json
 
