@@ -1,0 +1,46 @@
+# ─── Build outputs ──────────────────────────────────────────────────────────
+# Never send pre-built dist/ or host node_modules into the build context.
+# The Dockerfile rebuilds both from source inside the container.
+dist/
+node_modules/
+
+# ─── Environment & secrets ──────────────────────────────────────────────────
+# .env files contain secrets and must NEVER be baked into an image layer.
+# Inject secrets at runtime via docker run --env-file or orchestrator secrets.
+.env
+.env.*
+!.env.example
+
+# ─── Version control ────────────────────────────────────────────────────────
+.git/
+.gitignore
+.gitattributes
+
+# ─── Documentation ──────────────────────────────────────────────────────────
+*.md
+*.MD
+
+# ─── Test artifacts ─────────────────────────────────────────────────────────
+coverage/
+*.test.ts
+*.spec.ts
+vitest.config.ts
+__tests__/
+tests/
+
+# ─── Editor / OS junk ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.DS_Store
+Thumbs.db
+
+# ─── CI/CD & tooling configs ─────────────────────────────────────────────────
+.github/
+.agents/
+.prettierrc
+.eslintrc*
+.eslintignore
+
+# ─── Docker artefacts themselves ────────────────────────────────────────────
+# (prevents silly recursive context issues if someone nests compose files)
+docker-compose*.yml
