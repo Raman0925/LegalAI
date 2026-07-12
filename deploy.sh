@@ -36,19 +36,24 @@ git checkout main
 git reset --hard origin/main
 log "Git HEAD is now: $(git rev-parse --short HEAD)"
 
-# ── 2. Install production dependencies ──────────────────────────────────────
-# npm ci --omit=dev: exactly matches package-lock.json, skips devDeps
+# ── 2. Install dependencies ────────────────────────────────────────────────────
 # Run from the repo root so npm workspaces resolve correctly, then
 # cd into the backend to build — this mirrors what CI does.
-log "Installing production dependencies..."
+log "Installing dependencies (including dev for build)..."
 cd "$APP_DIR"
-npm ci --omit=dev
+npm ci
 
 # ── 3. Build TypeScript ──────────────────────────────────────────────────────
 # tsc compiles src/ + server.ts → dist/ (see tsconfig.json outDir)
 # NODE_ENV is set here so any build-time env checks behave correctly.
 log "Compiling TypeScript..."
 NODE_ENV=production npm run build
+
+# ── 3.5 Prune devDependencies ────────────────────────────────────────────────
+# Now that the build is done, we can remove the devDependencies (tsc, etc.)
+# to save space on the VPS.
+log "Pruning devDependencies..."
+npm prune --omit=dev
 
 # ── 4. Reload PM2 (zero-downtime) ────────────────────────────────────────────
 # `pm2 reload` does a rolling restart: spins up the new process, waits for it
