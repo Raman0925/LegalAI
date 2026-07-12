@@ -1,4 +1,3 @@
-import jwt, { JwtPayload } from 'jsonwebtoken';
 import { FastifyRequest, FastifyReply, FastifyError } from 'fastify';
 
 // Routes that skip authentication entirely
@@ -26,32 +25,19 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
 
   const token = authHeader.split(' ')[1];
 
-  const secret = process.env.JWT_SECRET;
-  if (!secret) {
-    const err = new Error('Internal Server Error: JWT secret is not configured') as FastifyError;
-    err.statusCode = 500;
-    throw err;
-  }
+  // ── Verify JWT via Supabase ──────────────────────────────────────────────
+  // getClaims() verifies the signature locally against Supabase's cached JWKS
+  // (supports both legacy HS256 and the newer per-project ES256/RS256 signing
+  // keys) so we never have to know the algorithm/secret ourselves.
+  const { data, error } = await request.server.supabase.auth.getClaims(token);
+  const claims = data?.claims;
 
-  // ── Verify JWT ─────────────────────────────────────────────────────────────
-  let decoded: JwtPayload;
-  try {
-    decoded = jwt.verify(token, secret, { algorithms: ['ES256'] }) as JwtPayload;
-  } catch {
+  if (error || !claims?.sub) {
     const err = new Error('Unauthorized: Invalid or expired access token') as FastifyError;
     err.statusCode = 401;
     throw err;
   }
 
-  if (!decoded?.sub) {
-    const err = new Error('Unauthorized: Invalid token payload') as FastifyError;
-    err.statusCode = 401;
-    throw err;
-  }
-
-  // ── Look up profile + firmId from DB ──────────────────────────────────────
-  // We fetch firmId here so every downstream handler always has it.
-  // The profiles table must have a firm_id column set during firm onboarding.
   try {
     const result = await request.server.pg.query(
       `SELECT
@@ -59,23 +45,21 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
          created_at, updated_at
        FROM public.profiles
        WHERE id = $1`,
-      [decoded.sub],
+      [claims.sub],
     );
 
     const profile = result.rows[0];
 
-    if (!profile) {
-      // Graceful fallback: profile sync trigger may not have run yet
-      // Use JWT metadata but log a warning — firmId will be empty string
+    if (!profile) { 
       request.log.warn(
-        { userId: decoded.sub },
+        { userId: claims.sub },
         'Profile not found in DB — using JWT metadata fallback. firm_id will be empty.'
       );
       request.user = {
-        id: decoded.sub,
-        email: decoded['email'] as string || '',
-        full_name: (decoded['user_metadata'] as Record<string, string>)?.full_name || null,
-        avatar_url: (decoded['user_metadata'] as Record<string, string>)?.avatar_url || null,
+        id: claims.sub,
+        email: claims['email'] as string || '',
+        full_name: (claims['user_metadata'] as Record<string, string>)?.full_name || null,
+        avatar_url: (claims['user_metadata'] as Record<string, string>)?.avatar_url || null,
         firmId: '',           // empty — not a valid UUID, will fail firm-scoped queries safely
         role: 'member',       // default — actual role resolved after firm join
         created_at: new Date().toISOString(),
@@ -87,8 +71,8 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
         email: profile.email,
         full_name: profile.full_name,
         avatar_url: profile.avatar_url,
-        firmId: profile.firm_id ?? '',   // firm_id from profiles table
-        role: profile.role ?? 'member',  // role from profiles table
+        firmId: profile.firm_id ?? '',
+        role: profile.role ?? 'member',
         created_at: profile.created_at,
         updated_at: profile.updated_at,
       };

@@ -1,16 +1,15 @@
-import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
+import { describe, it, expect, vi, afterEach } from 'vitest';
 import authMiddleware from './auth.middleware.js';
-import jwt from 'jsonwebtoken';
+
+function makeServer(getClaims: (token: string) => any, pgQuery?: (...args: any[]) => any) {
+  return {
+    supabase: { auth: { getClaims } },
+    pg: { query: pgQuery ?? vi.fn().mockResolvedValue({ rows: [] }) },
+  };
+}
 
 describe('authMiddleware', () => {
-  const originalSecret = process.env.JWT_SECRET;
-
-  beforeEach(() => {
-    process.env.JWT_SECRET = 'test-jwt-secret';
-  });
-
   afterEach(() => {
-    process.env.JWT_SECRET = originalSecret;
     vi.restoreAllMocks();
   });
 
@@ -56,12 +55,16 @@ describe('authMiddleware', () => {
     );
   });
 
-  it('should throw 401 if token verification fails', async () => {
+  it('should throw 401 if Supabase fails to verify the token', async () => {
     const req: any = {
       url: '/auth/me',
       headers: {
         authorization: 'Bearer invalid-token-sig',
       },
+      server: makeServer(async () => ({
+        data: null,
+        error: { message: 'invalid JWT' },
+      })),
     };
     const reply: any = {};
 
@@ -71,7 +74,7 @@ describe('authMiddleware', () => {
   });
 
   it('should verify token, query database and attach profile to request.user if profile exists', async () => {
-    const payload = {
+    const claims = {
       sub: 'user-id-123',
       email: 'test@example.com',
       user_metadata: {
@@ -79,8 +82,7 @@ describe('authMiddleware', () => {
         avatar_url: 'https://example.com/avatar.png',
       },
     };
-    const token = 'mocked-jwt-token';
-    vi.spyOn(jwt, 'verify').mockReturnValue(payload as any);
+    const token = 'valid-jwt-token';
 
     const mockProfile = {
       id: 'user-id-123',
@@ -102,11 +104,7 @@ describe('authMiddleware', () => {
       headers: {
         authorization: `Bearer ${token}`,
       },
-      server: {
-        pg: {
-          query: mockQuery,
-        },
-      },
+      server: makeServer(async () => ({ data: { claims }, error: null }), mockQuery),
       log: {
         warn: vi.fn(),
         debug: vi.fn(),
@@ -134,7 +132,7 @@ describe('authMiddleware', () => {
   });
 
   it('should use fallback metadata when profile is not found in database', async () => {
-    const payload = {
+    const claims = {
       sub: 'user-id-456',
       email: 'fallback@example.com',
       user_metadata: {
@@ -142,8 +140,7 @@ describe('authMiddleware', () => {
         avatar_url: null,
       },
     };
-    const token = 'mocked-jwt-token';
-    vi.spyOn(jwt, 'verify').mockReturnValue(payload as any);
+    const token = 'valid-jwt-token';
 
     const mockQuery = vi.fn().mockResolvedValue({
       rows: [], // empty rows -> profile not found
@@ -155,11 +152,7 @@ describe('authMiddleware', () => {
       headers: {
         authorization: `Bearer ${token}`,
       },
-      server: {
-        pg: {
-          query: mockQuery,
-        },
-      },
+      server: makeServer(async () => ({ data: { claims }, error: null }), mockQuery),
       log: {
         warn: mockWarn,
         debug: vi.fn(),
