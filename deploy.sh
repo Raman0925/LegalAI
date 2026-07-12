@@ -4,7 +4,7 @@
 #
 # Called by the GitHub Actions CD workflow over SSH.
 # Also safe to run manually on the VPS for a hot-fix deploy:
-#   bash /home/deploy/LegalAI/deploy.sh
+#   bash /var/www/legalai/deploy.sh
 #
 # ASSUMPTIONS (edit the variables below to match your VPS):
 #   REPO_DIR   — absolute path to the cloned repo on the VPS
@@ -13,6 +13,15 @@
 #   PORT       — the port the backend listens on (must match .env PORT)
 # ─────────────────────────────────────────────────────────────────────────────
 set -euo pipefail   # -e: exit on any error  -u: treat unset vars as errors  -o pipefail: catch pipe failures
+
+# ── Load nvm explicitly ───────────────────────────────────────────────────────
+# Non-interactive SSH sessions (like GitHub Actions' ssh-action) do NOT source
+# ~/.bashrc, so nvm's PATH additions (node, npm, pm2) are invisible unless we
+# load nvm ourselves here. Without this, `pm2`/`npm`/`node` all fail with
+# "command not found" even though they work fine when you SSH in by hand.
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+nvm use 22 > /dev/null
 
 # ── Configuration — edit these to match your VPS ────────────────────────────
 REPO_DIR="/var/www/legalai"
