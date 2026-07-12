@@ -13,14 +13,11 @@ const PUBLIC_PREFIXES = ['/docs', '/favicon.ico'];
 export default async function authMiddleware(request: FastifyRequest, reply: FastifyReply) {
   const { url } = request;
 
-  // ── Skip auth for public routes ───────────────────────────────────────────
   if (PUBLIC_ROUTES.has(url) || PUBLIC_PREFIXES.some(p => url.startsWith(p))) {
     return;
   }
 
-  // ── Validate Authorization header ─────────────────────────────────────────
   const authHeader = request.headers.authorization;
-  console.log("Auth header: ", authHeader);
   if (!authHeader?.startsWith('Bearer ')) {
     const err = new Error('Unauthorized: Missing or invalid token format') as FastifyError;
     err.statusCode = 401;
@@ -39,13 +36,12 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
   // ── Verify JWT ─────────────────────────────────────────────────────────────
   let decoded: JwtPayload;
   try {
-    decoded = jwt.verify(token, secret, { algorithms: ['HS256'] }) as JwtPayload;
+    decoded = jwt.verify(token, secret, { algorithms: ['ES256'] }) as JwtPayload;
   } catch {
     const err = new Error('Unauthorized: Invalid or expired access token') as FastifyError;
     err.statusCode = 401;
     throw err;
   }
-  console.log("Decoded token: ", decoded);
 
   if (!decoded?.sub) {
     const err = new Error('Unauthorized: Invalid token payload') as FastifyError;
