@@ -20,6 +20,7 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
 
   // ── Validate Authorization header ─────────────────────────────────────────
   const authHeader = request.headers.authorization;
+  console.log("Auth header: ", authHeader);
   if (!authHeader?.startsWith('Bearer ')) {
     const err = new Error('Unauthorized: Missing or invalid token format') as FastifyError;
     err.statusCode = 401;
@@ -44,6 +45,7 @@ export default async function authMiddleware(request: FastifyRequest, reply: Fas
     err.statusCode = 401;
     throw err;
   }
+  console.log("Decoded token: ", decoded);
 
   if (!decoded?.sub) {
     const err = new Error('Unauthorized: Invalid token payload') as FastifyError;
