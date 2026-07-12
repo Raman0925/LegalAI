@@ -42,7 +42,7 @@ log "Git HEAD is now: $(git rev-parse --short HEAD)"
 # cd into the backend to build — this mirrors what CI does.
 log "Installing production dependencies..."
 cd "$APP_DIR"
-npm ci --omit=dev
+npm ci
 
 # ── 3. Build TypeScript ──────────────────────────────────────────────────────
 # tsc compiles src/ + server.ts → dist/ (see tsconfig.json outDir)
