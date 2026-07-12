@@ -1,0 +1,117 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# deploy-ssh.yml — SSH-based CD pipeline for the LegalAI backend
+#
+# Named "deploy-ssh" (not just "deploy") so it remains unambiguous if a
+# Docker-based deploy-docker.yml is added later alongside this file.
+#
+# TRIGGER MODEL:
+#   This workflow ONLY fires when the CI workflow ("CI") completes successfully
+#   on the main branch. It NEVER triggers independently on push. This enforces
+#   the invariant: production is only updated with code that has passed CI.
+# ─────────────────────────────────────────────────────────────────────────────
+name: CD — Deploy Backend (SSH)
+
+on:
+  workflow_run:
+    # Must exactly match the `name:` field in .github/workflows/ci.yml
+    workflows: ["CI"]
+    types: [completed]
+    branches: [main]
+
+# ── Concurrency ───────────────────────────────────────────────────────────────
+# WHY cancel-in-progress: false (opposite of CI)?
+#   CI can safely cancel a mid-run typecheck when a newer commit arrives —
+#   nothing is mutated. A deploy is different: cancelling mid-deploy leaves the
+#   server in an indeterminate state (e.g. dependencies installed but process
+#   not yet reloaded, or PM2 half-way through a rolling restart). We QUEUE the
+#   newer deploy instead, so each one runs to completion in order.
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    name: Deploy to VPS via SSH
+
+    # ── Gate: only run if the triggering CI workflow actually passed ──────────
+    # Without this check the job would also run when CI is cancelled or fails.
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    runs-on: ubuntu-latest
+
+    # WHY 15 minutes?
+    #   On a VPS, `npm ci --omit=dev` + `tsc` for this codebase (LangChain,
+    #   LangGraph, tesseract.js, etc.) typically takes 3-6 minutes cold.
+    #   The SSH round-trip, git fetch, PM2 reload, and health-check polling add
+    #   another 1-2 minutes. 15 minutes gives 2× headroom before GitHub kills
+    #   a legitimately slow deploy on a loaded VPS, without letting a hung deploy
+    #   burn runner minutes indefinitely.
+    timeout-minutes: 15
+
+    steps:
+      # ── Step 1: Context log — immediately visible in the Actions UI ─────────
+      - name: Log deployment context
+        run: |
+          echo "Deploying commit: ${{ github.event.workflow_run.head_sha }}"
+          echo "Triggered by CI run: ${{ github.event.workflow_run.html_url }}"
+          echo "Actor: ${{ github.event.workflow_run.triggering_actor.login }}"
+
+      # ── Step 2: SSH into VPS and run deploy.sh ───────────────────────────────
+      # appleboy/ssh-action is the most widely used, actively maintained SSH
+      # action on the marketplace (100M+ uses). It supports ED25519 keys,
+      # custom ports, and multi-line script blocks natively.
+      #
+      # The script:
+      #   1. Navigates to the repo root on the server
+      #   2. Calls deploy.sh which is committed to the repo and owns all deploy
+      #      logic — we do NOT duplicate git/npm/pm2 commands inline here.
+      #      Single source of truth: deploy.sh. This YAML just invokes it.
+      #
+      # WHY bash deploy.sh and not just ./deploy.sh?
+      #   Avoids needing the executable bit set correctly on the server after
+      #   every git pull. `bash` always works regardless of file permissions.
+      - name: SSH — Run deploy.sh on VPS
+        uses: appleboy/ssh-action@v1.2.0
+        with:
+          host:     ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key:      ${{ secrets.VPS_SSH_KEY }}
+          port:     ${{ secrets.VPS_PORT }}
+          # fail_on_error: the SSH action exits non-zero if the remote script
+          # exits non-zero (deploy.sh uses `set -euo pipefail`). This correctly
+          # propagates failures back to GitHub Actions as a step failure.
+          script_stop: true
+          # REPO_DIR must match the path in deploy.sh on your VPS.
+          # The script itself contains the path — this cd is a safety guard.
+          script: |
+            cd /var/www/legalai
+            bash deploy.sh
+
+      # ── Step 3: Post-deploy verification (belt-and-suspenders) ──────────────
+      # deploy.sh already has an internal health check. This step provides an
+      # EXTERNAL check from the GitHub Actions runner — confirming the app is
+      # reachable over the public internet, not just localhost on the VPS.
+      # This catches cases where the app is up but a firewall/nginx rule broke.
+      #
+      # Requires the secret VPS_HOST and your backend's public port/domain.
+      # Adjust the URL to match your VPS's public address and PORT.
+      - name: Verify — Health check from runner
+        run: |
+          echo "Probing public health endpoint..."
+          # Retry up to 5 times with a 5-second delay to allow nginx/PM2 to stabilise
+          for i in $(seq 1 5); do
+            STATUS=$(curl --silent --output /dev/null --write-out "%{http_code}" \
+              --max-time 10 \
+              "http://${{ secrets.VPS_HOST }}:${{ secrets.VPS_APP_PORT }}/health" || echo "000")
+            echo "Attempt $i — HTTP $STATUS"
+            if [ "$STATUS" = "200" ] || [ "$STATUS" = "503" ]; then
+              # 200 = fully healthy; 503 = app is up but DB had a blip.
+              # Either means the process is running and accepting connections.
+              echo "Health check passed (HTTP $STATUS) ✓"
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "ERROR: /health did not return 200 or 503 after 5 attempts."
+          echo "Check PM2 logs on the VPS: pm2 logs legalai-api --lines 50"
+          exit 1
