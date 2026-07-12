@@ -8,7 +8,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "npm run dev --workspace=app/frontend",
+    "dev": "npm run dev --workspace=app/frontend && npm run dev --workspace=app/backend",
     "dev:frontend": "npm run dev --workspace=app/frontend",
     "dev:backend": "npm run dev --workspace=app/backend",
     "test": "npm test --workspaces"
