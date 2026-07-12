@@ -17,11 +17,6 @@ import {
 } from './onboarding.schema.js';
 
 export async function onboardingController(app: FastifyInstance) {
-
-  // ── POST /onboarding/firm ─────────────────────────────────────────────────
-  // Creates a new firm and links the logged-in user as owner.
-  // Called once on first login when user has no firm_id.
-  // Also starts the 14-day trial automatically.
   app.post('/firm', {
     preHandler: [authenticate],
     schema: createFirmJsonSchema,
@@ -43,10 +38,6 @@ export async function onboardingController(app: FastifyInstance) {
     }
   });
 
-  // ── POST /onboarding/invite ───────────────────────────────────────────────
-  // Sends an invite email to a new team member.
-  // Only firm owners and admins can invite.
-  // Enforces seat limits before sending.
   app.post('/invite', {
     preHandler: [authenticate, requireActiveSubscription],
     schema: inviteMemberJsonSchema,
