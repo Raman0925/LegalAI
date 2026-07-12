@@ -79,7 +79,8 @@ describe('authMiddleware', () => {
         avatar_url: 'https://example.com/avatar.png',
       },
     };
-    const token = jwt.sign(payload, 'test-jwt-secret');
+    const token = 'mocked-jwt-token';
+    vi.spyOn(jwt, 'verify').mockReturnValue(payload as any);
 
     const mockProfile = {
       id: 'user-id-123',
@@ -141,7 +142,8 @@ describe('authMiddleware', () => {
         avatar_url: null,
       },
     };
-    const token = jwt.sign(payload, 'test-jwt-secret');
+    const token = 'mocked-jwt-token';
+    vi.spyOn(jwt, 'verify').mockReturnValue(payload as any);
 
     const mockQuery = vi.fn().mockResolvedValue({
       rows: [], // empty rows -> profile not found
